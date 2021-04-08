@@ -1,2 +1,2 @@
 # Anser-Action
-PHP Service Aggregation Pattern Library
+PHP API Composition Pattern Library
