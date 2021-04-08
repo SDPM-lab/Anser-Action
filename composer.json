@@ -1,0 +1,26 @@
+{
+    "name": "sdpmlab/anser-action",
+    "description": "Make Codeigniter4 work on Roadrunner Server.",
+    "keywords": [
+		"php",
+		"microservice",
+		"aggregator"
+	],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "SDPM-lab",
+            "homepage": "https://github.com/SDPM-lab"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php" : "^7.4"
+    },
+    "autoload": {
+		"psr-4": {
+			"SDPMlab\\Ci4Roadrunner\\": "src/"
+		}
+	}
+}
