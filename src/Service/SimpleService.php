@@ -63,8 +63,7 @@ abstract class SimpleService
      */
     final protected function getAction(
         string $method,
-        string $path,
-        array $options = []
+        string $path
     ): Action {
 
         if($this->serviceName == null){
@@ -73,7 +72,6 @@ abstract class SimpleService
 
         //實體化 action
         $action = new Action($this->serviceName, $method, $path);
-        $action->setOptions($options);
 
         //判斷是否有統一設定 retry 規則
         $action->setRetry($this->retry, $this->retryDelay);
