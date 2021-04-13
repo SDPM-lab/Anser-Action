@@ -20,7 +20,7 @@
     },
     "autoload": {
 		"psr-4": {
-			"SDPMlab\\Ci4Roadrunner\\": "src/"
+			"SDPMlab\\Anser\\": "src/"
 		}
 	}
 }
