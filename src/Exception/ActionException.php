@@ -153,8 +153,4 @@ class ActionException extends AnserException
         return $this->action;
     }
 
-    // public static function forServiceConfigNotFound(string $serviceName): GatewayException
-    // {
-    //     return new static("取得 {$serviceName} 服務實體設定失敗，請確認 /Config/Gateway.php 是否具有正確設定。");
-    // }
 }
