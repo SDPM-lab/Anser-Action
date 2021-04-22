@@ -124,6 +124,16 @@ interface ActionInterface
     public function isSuccess(): bool;
 
     /**
+     * 通常，你不會使用到這個方法。isSuccess 的判斷是在 Action-Do 之後自動執行的。
+     * 若是你所溝通的端點不論是成功或失敗都會回傳 Http status code 200。
+     * 那麼你就需要透過這個方法自行切換 Action 的最終狀態。
+     * 
+     * @param boolean $isSuccess True 為執行成功 False 則為失敗
+     * @return ActionInterface
+     */
+    public function setSuccess(bool $isSuccess): ActionInterface;
+
+    /**
      * 回傳 action 總執行次數（不論成功與否）。
      *
      * @return integer
@@ -252,4 +262,5 @@ interface ActionInterface
      * @return mixed 設定值
      */
     public function getOption(string $optionName);
+
 }
