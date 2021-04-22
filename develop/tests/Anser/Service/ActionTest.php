@@ -10,6 +10,7 @@ use SDPMlab\Anser\Service\RequestSettings;
 use GuzzleHttp\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\RequestInterface;
+use SDPMlab\Anser\Exception\ActionException;
 
 class ActionTest extends CIUnitTestCase
 {
@@ -131,8 +132,11 @@ class ActionTest extends CIUnitTestCase
     public function testMeaningDataActionDo()
     {
         $action = new Action("testService1","GET","/api/v1/user");
-        $action->setMeaningDataHandler(function(Action $runtimeAction){
-            $data = json_decode($runtimeAction->getResponse()->getBody()->getContents(),true)["data"];
+        $action->doneHandler(function(
+            \Psr\Http\Message\ResponseInterface $response,
+            ActionInterface $runtimeAction
+        ){
+            $data = json_decode($response->getBody()->getContents(),true)["data"];
             $meaningData = [];
             foreach ($data as $item) {
                 $meaningData[] = [
@@ -151,15 +155,18 @@ class ActionTest extends CIUnitTestCase
     public function testReturnMeaningDataActionDo()
     {
         $action = new Action("testService1","GET","/api/v1/user");
-        $action->setMeaningDataHandler(function(Action $runtimeAction){
-            $data = json_decode($runtimeAction->getResponse()->getBody()->getContents(),true)["data"];
+        $action->doneHandler(function(
+            \Psr\Http\Message\ResponseInterface $response,
+            ActionInterface $runtimeAction
+        ){
+            $data = json_decode($response->getBody()->getContents(),true)["data"];
             $meaningData = [];
             foreach ($data as $item) {
                 $meaningData[] = [
                     "id" => $item["id"]
                 ];
             }
-            return $meaningData;
+            $runtimeAction->setMeaningData($meaningData);
         });
         $action->do();
         $meaningData = $action->getMeaningData();
@@ -233,38 +240,41 @@ class ActionTest extends CIUnitTestCase
         }
     }
 
-    public function test4XXHandlerActionDo()
+    public function testFailHandler400ActionDo()
     {
         $action = new Action("testService1","GET","/api/v1/fail");
         $errorCode = 0;
-        $action->set4XXErrorHandler(function(Action $errorAction) use (&$errorCode){
-            $errorCode = $errorAction->getResponse()->getStatusCode();
-            $errorAction->setMeaningDataHandler(function(Action $runtimeAction){
-                $body = json_decode($runtimeAction->getResponse()->getBody()->getContents(), true);
-                return ["message"=>$body["messages"]["error"]];
-            });
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                $response = $e->getResponse();
+                $action = $e->getAction();
+                $errorCode = $e->getStatusCode();
+                $body = json_decode($response->getBody()->getContents(), true);
+                $action->setMeaningData( ["message"=>$body["messages"]["error"]]);    
+            }
         });
-        $this->assertIsCallable($action->get4XXErrorHandler());
+        $this->assertIsCallable($action->getFaileHandler());
         $action->do();
         $this->assertEquals($errorCode,429);
         $this->assertEquals($action->getMeaningData()["message"],"Too Many Requests");
     }
 
-    public function test5XXHandlerActionDo()
+    public function testFailHandler500ActionDo()
     {
         $action = new Action("testService1","GET","/api/v1/fail/1");
         $errorCode = 0;
-        $action->set5XXErrorHandler(function(Action $errorAction) use (&$errorCode){
-            $errorCode = $errorAction->getResponse()->getStatusCode();
-            $errorAction->setMeaningDataHandler(function(Action $runtimeAction){
-                $body = json_decode($runtimeAction->getResponse()->getBody()->getContents(), true);
-                return ["message"=>$body["messages"]["error"]];
-            });
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                $response = $e->getResponse();
+                $action = $e->getAction();
+                $errorCode = $e->getStatusCode();
+                $body = json_decode($response->getBody()->getContents(), true);
+                $action->setMeaningData( ["message"=>$body["messages"]["error"]]);    
+            }
         });
-        $this->assertIsCallable($action->get5XXErrorHandler());
+        $this->assertIsCallable($action->getFaileHandler());
         $action->do();
         $this->assertEquals($errorCode,500);
         $this->assertEquals($action->getMeaningData()["message"],"Internal Server Error");
     }
-
 }

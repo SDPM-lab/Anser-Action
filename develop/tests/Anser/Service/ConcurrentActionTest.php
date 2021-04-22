@@ -82,12 +82,15 @@ class ConcurrentActionTest extends CIUnitTestCase
         $orderID = 25;
         $action = new Action("testService1", "GET", "/api/v1/order/{$orderID}");
         $action2 = new Action("testService2", "GET", "/api/v1/payment/{$orderID}");
-        $meaningDataHandler = function (Action $runtimeAction) {
-            $data = json_decode($runtimeAction->getResponse()->getBody()->getContents(), true)["data"];
-            return $data;
+        $meaningDataHandler = function(
+            \Psr\Http\Message\ResponseInterface $response,
+            ActionInterface $runtimeAction
+        ){
+            $data = json_decode($response->getBody()->getContents(), true)["data"];
+            $runtimeAction->setMeaningData($data);
         };
-        $action->setMeaningDataHandler($meaningDataHandler);
-        $action2->setMeaningDataHandler($meaningDataHandler);
+        $action->doneHandler($meaningDataHandler);
+        $action2->doneHandler($meaningDataHandler);
         $this->concurrent->setActions([
             "order" => $action,
             "payment" => $action2,

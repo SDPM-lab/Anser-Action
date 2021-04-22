@@ -36,54 +36,29 @@ interface ActionInterface
     public function setActionResponse(?ResponseInterface $response, bool $isSuccess);
 
     /**
-     * 設定執行 Action 若遇到 Http 4XX 錯誤時的處理程序。
-     * 若未設定這個選項，將會在遇到 Http 4XX 時拋出錯誤。
+     * 定義 Action 完成時的處理器。
+     * 所傳入的處理器將會在 Action 請求成功(status 2XX)且執行完後濾器後自動執行。
      *
-     * @param callable(\SDPMlab\Anser\Service\ActionInterface):void $handler
+     * @param callable(\Psr\Http\Message\ResponseInterface ,\SDPMlab\Anser\Service\ActionInterface):mixed $handler
      * @return ActionInterface
      */
-    public function set4XXErrorHandler(callable $handler): ActionInterface;
+    public function failHandler(callable $handler): ActionInterface;
 
     /**
-     * 處理 4XX 伺服器例外
+     * 處理伺服器回傳例外
      *
      * @param \GuzzleHttp\Exception\ServerException $th
      * @param string|null $alias
      * @return void
      */
-    public function process4XXError(\GuzzleHttp\Exception\ClientException $th, ?string $alias = null);
+    public function processFailHandler(\GuzzleHttp\Exception\BadResponseException $th, ?string $alias = null);
 
     /**
-     * 取得 http 4xx 處理程序 callable。
+     * 取得錯誤處理程序 callable。
      *
      * @return callable|null 若無設定則回傳 null
      */
-    public function get4XXErrorHandler(): ?callable ;
-
-    /**
-     * 設定執行 Action 若遇到 Http 5XX 錯誤時的處理程序。
-     * 若未設定這個選項，將會在遇到 Http 5XX 時拋出錯誤。
-     *
-     * @param callable(\SDPMlab\Anser\Service\ActionInterface):void $handler
-     * @return ActionInterface
-     */
-    public function set5XXErrorHandler(callable $handler): ActionInterface;
-
-    /**
-     * 取得 http 5xx 處理程序 callable。
-     *
-     * @return callable|null 若無設定則回傳 null
-     */
-    public function get5XXErrorHandler(): ?callable ;
-
-    /**
-     * 處理 5XX 伺服器例外
-     *
-     * @param \GuzzleHttp\Exception\ServerException $th
-     * @param string|null $alias
-     * @return void
-     */
-    public function process5XXError(\GuzzleHttp\Exception\ServerException $th, ?string $alias = null);
+    public function getFaileHandler(): ?callable ;
 
     /**
      * 設定重試規則
@@ -162,25 +137,25 @@ interface ActionInterface
     public function getHttpClient(): ClientInterface;
 
     /**
-     * 定義 Meaning Data 專用處理器。
+     * 定義 Action 完成時的處理器。
      * 所傳入的處理器將會在 Action 請求成功(status 2XX)且執行完後濾器後自動執行。
      *
      * @param callable(\SDPMlab\Anser\Service\ActionInterface):void $handler
      * @return ActionInterface
      */
-    public function setMeaningDataHandler(callable $handler): ActionInterface;
+    public function doneHandler(callable $handler): ActionInterface;
 
     /**
-     * 使 Meaning Data 處理器生效。
+     * 使 done handler 處理器生效。
      *
      * @return void
      */
-    public function useMeaningDataHandler();
+    public function useDoneHandler();
 
     /**
      * 將傳入的變數設為 action 的 meaning data。
      *
-     * @param [type] $meaningData
+     * @param mixed $meaningData
      * @return ActionInterface
      */
     public function setMeaningData($meaningData): ActionInterface;

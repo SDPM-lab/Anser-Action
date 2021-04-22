@@ -60,11 +60,11 @@ class Action implements ActionInterface
     ];
 
     /**
-     * meaning data 內容
+     * Action 完成時的處理器
      *
      * @var callable(\SDPMlab\Anser\Service\ActionInterface):mixed|null
      */
-    protected $meaningDataHandler = null;
+    protected $doneHandler = null;
 
     /**
      * meaning data 內容
@@ -74,18 +74,11 @@ class Action implements ActionInterface
     protected $meaningData;
 
     /**
-     * 發生 http 4XX 系列錯誤之處理程序
+     * 發生 HTTP 錯誤之處理程序
      *
      * @var callable|null
      */
-    protected $http4XXErrorHandler = null;
-
-    /**
-     * 發生 http 5XX 系列錯誤之處理程序
-     *
-     * @var callable|null
-     */
-    protected $http5XXErrorHandler = null;
+    protected $failHandler = null;
 
     /**
      * Acction 執行是否成功
@@ -157,7 +150,8 @@ class Action implements ActionInterface
      *
      * @return \SDPMlab\Anser\Service\ActionInterface
      */
-    function do(): ActionInterface {
+    function do(): ActionInterface
+    {
         //執行前濾器
         $this->useFilters(true);
 
@@ -179,9 +173,9 @@ class Action implements ActionInterface
                 }
             }
         } catch (\GuzzleHttp\Exception\ClientException $th) {
-            $this->process4XXError($th);
+            $this->processFailHandler($th);
         } catch (\GuzzleHttp\Exception\ServerException $th) {
-            $this->process5XXError($th);
+            $this->processFailHandler($th);
         } catch (\GuzzleHttp\Exception\ConnectException $th) {
             $this->isSuccess = false;
             throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this);
@@ -191,7 +185,7 @@ class Action implements ActionInterface
         $this->useFilters(false);
 
         //判斷是否需要過濾意義資料
-        $this->useMeaningDataHandler();
+        if ($this->isSuccess) $this->useDoneHandler();
 
         return $this;
     }
@@ -203,7 +197,7 @@ class Action implements ActionInterface
      * @param boolean $isRetry
      * @return PromiseInterface
      */
-    public function doAsync(string $alias,bool $isRetry = false): PromiseInterface
+    public function doAsync(string $alias, bool $isRetry = false): PromiseInterface
     {
         $runtimeAction = $this;
 
@@ -221,7 +215,7 @@ class Action implements ActionInterface
                 //執行後濾器
                 $runtimeAction->useFilters(false);
                 //判斷是否需要過濾意義資料
-                $runtimeAction->useMeaningDataHandler();
+                $runtimeAction->useDoneHandler();
             },
             function ($th) use (&$runtimeAction, $alias) {
                 //判斷是否需要重試
@@ -229,7 +223,7 @@ class Action implements ActionInterface
                 $retrySetting = $runtimeAction->getRetrySetting();
                 $nowNum = $runtimeAction->getNumnerOfDoAction();
                 if ($nowNum <= $retrySetting[0]) {
-                    $promise = $runtimeAction->doAsync($alias,true);
+                    $promise = $runtimeAction->doAsync($alias, true);
                     Utils::unwrap([$promise]);
                 }
 
@@ -238,9 +232,9 @@ class Action implements ActionInterface
                     $this->isSuccess = false;
                     throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias);
                 } else if ($th instanceof \GuzzleHttp\Exception\ClientException) {
-                    $runtimeAction->process4XXError($th, $alias);
+                    $runtimeAction->processFailHandler($th, $alias);
                 } else if ($th instanceof \GuzzleHttp\Exception\ServerException) {
-                    $runtimeAction->process5XXError($th, $alias);
+                    $runtimeAction->processFailHandler($th, $alias);
                 }
             }
         );
@@ -256,9 +250,9 @@ class Action implements ActionInterface
     protected function sendRequest(bool $isRetry = false): ResponseInterface
     {
         $options = $this->getFinallyRequestOption($isRetry);
-        if(substr($this->path, 0,1) === '/'){
+        if (substr($this->path, 0, 1) === '/') {
             $path = substr($this->path, 1);
-        }else{
+        } else {
             $path = $this->path;
         }
         $response = $this->client->request(
@@ -283,84 +277,45 @@ class Action implements ActionInterface
     }
 
     /**
-     * 設定執行 Action 若遇到 Http 4XX 錯誤時的處理程序。
-     * 若未設定這個選項，將會在遇到 Http 4XX 時拋出錯誤。
+     * 設定執行 Action 若遇到 Http 400~500 錯誤時的處理程序。
+     * 若未設定這個選項，將會在執行失敗時拋出錯誤。
      *
-     * @param callable(\SDPMlab\Anser\Service\ActionInterface):void $handler
+     * @param callable(\SDPMlab\Anser\Exception\ActionException):void $handler
      * @return ActionInterface
      */
-    public function set4XXErrorHandler(callable $handler): ActionInterface
+    public function failHandler(callable $handler): ActionInterface
     {
-        $this->http4XXErrorHandler = $handler;
+        $this->failHandler = $handler;
         return $this;
     }
 
     /**
-     * 取得 http 4xx 處理程序 callable。
+     * 取得錯誤處理程序 callable。
      *
      * @return callable|null 若無設定則回傳 null
      */
-    public function get4XXErrorHandler(): ?callable
+    public function getFaileHandler(): ?callable
     {
-        return $this->http4XXErrorHandler;
+        return $this->failHandler;
     }
 
     /**
-     * 處理 4XX 伺服器例外
+     * 處理伺服器回傳例外
      *
-     * @param \GuzzleHttp\Exception\ServerException $th
+     * @param \GuzzleHttp\Exception\BadResponseException $th
      * @param string|null $alias
      * @return void
      */
-    public function process4XXError(\GuzzleHttp\Exception\ClientException $th, ?string $alias = null)
+    public function processFailHandler(\GuzzleHttp\Exception\BadResponseException $th, ?string $alias = null)
     {
         $this->setActionResponse($th->getResponse(), false);
-        if (is_callable($this->http4XXErrorHandler)) {
+        $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
+        if (is_callable($this->failHandler)) {
             $this->response = $th->getResponse();
-            call_user_func($this->http4XXErrorHandler, $this);
+            call_user_func($this->failHandler, $exception);
         } else {
-            throw ActionException::forServiceAction4XXError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
+            throw $exception;
         }
-    }
-
-    /**
-     * 設定執行 Action 若遇到 Http 5XX 錯誤時的處理程序。
-     * 若未設定這個選項，將會在遇到 Http 5XX 時拋出錯誤。
-     *
-     * @param callable(\SDPMlab\Anser\Service\ActionInterface):void $handler
-     * @return ActionInterface
-     */
-    public function set5XXErrorHandler(callable $handler): ActionInterface
-    {
-        $this->http5XXErrorHandler = $handler;
-        return $this;
-    }
-
-    /**
-     * 處理 5XX 伺服器例外
-     *
-     * @param \GuzzleHttp\Exception\ServerException $th
-     * @param string|null $alias
-     * @return void
-     */
-    public function process5XXError(\GuzzleHttp\Exception\ServerException $th, ?string $alias = null)
-    {
-        $this->setActionResponse($th->getResponse(), false);
-        if (is_callable($this->http5XXErrorHandler)) {
-            call_user_func($this->http5XXErrorHandler, $this);
-        } else {
-            throw ActionException::forServiceAction5XXError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
-        }
-    }
-
-    /**
-     * 取得 http 5xx 處理程序 callable。
-     *
-     * @return callable|null 若無設定則回傳 null
-     */
-    public function get5XXErrorHandler(): ?callable
-    {
-        return $this->http5XXErrorHandler;
     }
 
     /**
@@ -508,15 +463,15 @@ class Action implements ActionInterface
     }
 
     /**
-     * 定義 Meaning Data 專用處理器。
+     * 定義 Action 完成時的處理器。
      * 所傳入的處理器將會在 Action 請求成功(status 2XX)且執行完後濾器後自動執行。
      *
-     * @param callable(\SDPMlab\Anser\Service\ActionInterface):mixed $handler
+     * @param callable(\Psr\Http\Message\ResponseInterface ,\SDPMlab\Anser\Service\ActionInterface):mixed $handler
      * @return ActionInterface
      */
-    public function setMeaningDataHandler(callable $handler): ActionInterface
+    public function doneHandler(callable $handler): ActionInterface
     {
-        $this->meaningDataHandler = $handler;
+        $this->doneHandler = $handler;
         return $this;
     }
 
@@ -525,13 +480,10 @@ class Action implements ActionInterface
      *
      * @return void
      */
-    public function useMeaningDataHandler()
+    public function useDoneHandler()
     {
-        if (is_callable($this->meaningDataHandler)) {
-            $meaningDataCallableResult = call_user_func($this->meaningDataHandler, $this);
-            if ($meaningDataCallableResult !== null) {
-                $this->setMeaningData($meaningDataCallableResult);
-            }
+        if (is_callable($this->doneHandler)) {
+            call_user_func($this->doneHandler, $this->response, $this);
         }
     }
 

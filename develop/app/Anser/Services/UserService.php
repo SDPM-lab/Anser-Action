@@ -29,10 +29,13 @@ class UserService extends SimpleService
     public function getUserList()
     {
         $action = $this->getAction("GET","/api/v1/user")
-            ->setMeaningDataHandler(function(ActionInterface $runtimeAction){
-                $data = json_decode($runtimeAction->getResponse()->getBody()->getContents(),true);
+            ->doneHandler(function(
+                \Psr\Http\Message\ResponseInterface $response,
+                ActionInterface $runtimeAction
+            ){
+                $data = json_decode($response->getBody()->getContents(),true);
                 $meaningData = $data["data"];
-                return $meaningData;
+                $runtimeAction->setMeaningData($meaningData);
             }
         );
         return $action;
@@ -47,10 +50,13 @@ class UserService extends SimpleService
     public function getUserData(int $id): ActionInterface
     {
         $action = $this->getAction("GET","/api/v1/user/{$id}")
-            ->setMeaningDataHandler(function(ActionInterface $runtimeAction){
-                $data = json_decode($runtimeAction->getResponse()->getBody()->getContents(),true);
+            ->doneHandler(function(
+                \Psr\Http\Message\ResponseInterface $response,
+                ActionInterface $runtimeAction
+            ){
+                $data = json_decode($response->getBody()->getContents(),true);
                 $meaningData = $data["data"];
-                return $meaningData;
+                $runtimeAction->setMeaningData($meaningData);
             }
         );
         return $action;

@@ -46,7 +46,7 @@ class ActionException extends AnserException
         $this->action = $action;
     }
 
-    public static function forServiceAction5XXError(
+    public static function forServiceActionFailError(
         string $serviceName,
         RequestSettings $requestSettings,
         ResponseInterface $response,
@@ -55,27 +55,6 @@ class ActionException extends AnserException
         ?string $alias = null
     ): ActionException {
         $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 發生 HTTP  {$response->getStatusCode()}  異常。";
-        if ($alias) {
-            $msg = "{$alias}-" . $msg;
-        }
-
-        return new self(
-            $msg,
-            $response,
-            $request,
-            $action
-        );
-    }
-
-    public static function forServiceAction4XXError(
-        string $serviceName,
-        RequestSettings $requestSettings,
-        ResponseInterface $response,
-        RequestInterface $request,
-        ActionInterface $action,
-        ?string $alias = null
-    ): ActionException {
-        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生 HTTP {$response->getStatusCode()} 異常。";
         if ($alias) {
             $msg = "{$alias}-" . $msg;
         }
@@ -151,6 +130,38 @@ class ActionException extends AnserException
     public function getAction(): ActionInterface
     {
         return $this->action;
+    }
+
+    /**
+     * 回傳 HTTP 狀態碼
+     *
+     * @return integer
+     */
+    public function getStatusCode(): int
+    {
+        return $this->response->getStatusCode();
+    }
+
+    /**
+     * 是否為 Client Error (Client code 4XX)
+     *
+     * @return boolean
+     */
+    public function isClientError():bool
+    {
+        $statusCode = $this->response->getStatusCode();
+        return $statusCode >= 400 && $statusCode < 500;
+    }
+
+    /**
+     * 是否為 Server Error (Status code 5XX)
+     *
+     * @return boolean
+     */
+    public function isServerError(): bool
+    {
+        $statusCode = $this->response->getStatusCode();
+        return $statusCode >= 500;
     }
 
 }
