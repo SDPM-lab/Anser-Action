@@ -256,9 +256,14 @@ class Action implements ActionInterface
     protected function sendRequest(bool $isRetry = false): ResponseInterface
     {
         $options = $this->getFinallyRequestOption($isRetry);
+        if(substr($this->path, 0,1) === '/'){
+            $path = substr($this->path, 1);
+        }else{
+            $path = $this->path;
+        }
         $response = $this->client->request(
             $this->method,
-            $this->baseUrl . $this->path,
+            $this->baseUrl . $path,
             $options
         );
         return $response;
@@ -510,7 +515,7 @@ class Action implements ActionInterface
     {
         if (is_callable($this->meaningDataHandler)) {
             $meaningDataCallableResult = call_user_func($this->meaningDataHandler, $this);
-            if ($meaningDataCallableResult) {
+            if ($meaningDataCallableResult !== null) {
                 $this->setMeaningData($meaningDataCallableResult);
             }
         }
