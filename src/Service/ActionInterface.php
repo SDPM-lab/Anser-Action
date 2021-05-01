@@ -39,7 +39,7 @@ interface ActionInterface
      * 定義 Action 完成時的處理器。
      * 所傳入的處理器將會在 Action 請求成功(status 2XX)且執行完後濾器後自動執行。
      *
-     * @param callable(\Psr\Http\Message\ResponseInterface ,\SDPMlab\Anser\Service\ActionInterface):mixed $handler
+     * @param callable(\SDPMlab\Anser\Exception\ActionException):mixed $handler
      * @return ActionInterface
      */
     public function failHandler(callable $handler): ActionInterface;
@@ -47,7 +47,7 @@ interface ActionInterface
     /**
      * 處理伺服器回傳例外
      *
-     * @param \GuzzleHttp\Exception\ServerException $th
+     * @param \GuzzleHttp\Exception\TransferException $th
      * @param string|null $alias
      * @return void
      */

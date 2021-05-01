@@ -33,17 +33,25 @@ class ActionException extends AnserException
     protected $action;
 
     /**
+     * 是否是連線錯誤
+     *
+     * @var boolean
+     */
+    protected $isConnectError = false;
+
+    /**
      * 初始化　ActionException
      *
      * @param string $message 錯誤訊息
      * @param ResponseInterface|null $response Psr-7 response 物件（如果有）
      */
-    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null)
+    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null, $isConnectError = false)
     {
         parent::__construct($message);
         $this->response = $response;
         $this->request = $request;
         $this->action = $action;
+        $this->isConnectError = $isConnectError;
     }
 
     public static function forServiceActionFailError(
@@ -83,7 +91,8 @@ class ActionException extends AnserException
             $msg,
             null,
             $request,
-            $action
+            $action,
+            true
         );
     }
 
@@ -147,7 +156,7 @@ class ActionException extends AnserException
      *
      * @return boolean
      */
-    public function isClientError():bool
+    public function isClientError(): bool
     {
         $statusCode = $this->response->getStatusCode();
         return $statusCode >= 400 && $statusCode < 500;
@@ -164,4 +173,13 @@ class ActionException extends AnserException
         return $statusCode >= 500;
     }
 
+    /**
+     * 判斷是否為伺服器連線錯誤
+     *
+     * @return boolean
+     */
+    public function isConnectError(): bool
+    {
+        return $this->isConnectError;
+    }
 }

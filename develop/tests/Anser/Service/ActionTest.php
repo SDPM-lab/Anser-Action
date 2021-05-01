@@ -29,12 +29,19 @@ class ActionTest extends CIUnitTestCase
         "isHttps" => true
     ];
 
+    public $errorService = [
+        "name" => "errorService",
+        "address" => "localhost",
+        "port" => 7000,
+        "isHttps" => false
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
         ServiceList::cleanServiceList();
         ServiceList::setLocalServices([
-            $this->testService1, $this->testService2
+            $this->testService1, $this->testService2, $this->errorService
         ]);
     }
 
@@ -276,5 +283,24 @@ class ActionTest extends CIUnitTestCase
         $action->do();
         $this->assertEquals($errorCode,500);
         $this->assertEquals($action->getMeaningData()["message"],"Internal Server Error");
+    }
+
+    public function testConnectionError()
+    {
+        $action = new Action("errorService","GET","/api/v1/fail/1");
+        $action->failHandler(function(ActionException $e){
+            if($e->isConnectError()){
+                $e->getAction()->setMeaningData("connectError");
+            }
+        })->setTimeout(1.0)->do();
+        $this->assertEquals($action->getMeaningData(),"connectError");
+
+        $action = new Action("errorService","GET","/api/v1/fail/1");
+        try {
+            $action->setTimeout(1.0)->do();
+        } catch (\Exception $e) {
+            $this->assertInstanceOf(ActionException::class,$e);
+            $this->assertTrue($e->isConnectError());
+        }
     }
 }

@@ -172,14 +172,17 @@ class Action implements ActionInterface
                     continue;
                 }
             }
-        } catch (\GuzzleHttp\Exception\ClientException $th) {
+        } catch (\GuzzleHttp\Exception\TransferException $th){
             $this->processFailHandler($th);
-        } catch (\GuzzleHttp\Exception\ServerException $th) {
-            $this->processFailHandler($th);
-        } catch (\GuzzleHttp\Exception\ConnectException $th) {
-            $this->isSuccess = false;
-            throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this);
         }
+        // catch (\GuzzleHttp\Exception\ClientException $th) {
+        //     $this->processFailHandler($th);
+        // } catch (\GuzzleHttp\Exception\ServerException $th) {
+        //     $this->processFailHandler($th);
+        // } catch (\GuzzleHttp\Exception\ConnectException $th) {
+        //     $this->isSuccess = false;
+        //     throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this);
+        // }
 
         //執行後濾器
         $this->useFilters(false);
@@ -228,14 +231,14 @@ class Action implements ActionInterface
                 }
 
                 //錯誤處理
-                if ($th instanceof \GuzzleHttp\Exception\ConnectException) {
-                    $this->isSuccess = false;
-                    throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias);
-                } else if ($th instanceof \GuzzleHttp\Exception\ClientException) {
-                    $runtimeAction->processFailHandler($th, $alias);
-                } else if ($th instanceof \GuzzleHttp\Exception\ServerException) {
+                if ($th instanceof \GuzzleHttp\Exception\TransferException) {
                     $runtimeAction->processFailHandler($th, $alias);
                 }
+                //  else if ($th instanceof \GuzzleHttp\Exception\ClientException) {
+                //     $runtimeAction->processFailHandler($th, $alias);
+                // } else if ($th instanceof \GuzzleHttp\Exception\ServerException) {
+                //     $runtimeAction->processFailHandler($th, $alias);
+                // }
             }
         );
         return $promise;
@@ -277,7 +280,7 @@ class Action implements ActionInterface
     }
 
     /**
-     * 設定執行 Action 若遇到 Http 400~500 錯誤時的處理程序。
+     * 設定執行 Action 若遇到 Http 400~500 錯誤以及連線錯誤時的處理程序。
      * 若未設定這個選項，將會在執行失敗時拋出錯誤。
      *
      * @param callable(\SDPMlab\Anser\Exception\ActionException):void $handler
@@ -302,19 +305,29 @@ class Action implements ActionInterface
     /**
      * 處理伺服器回傳例外
      *
-     * @param \GuzzleHttp\Exception\BadResponseException $th
+     * @param \GuzzleHttp\Exception\TransferException $th
      * @param string|null $alias
      * @return void
      */
-    public function processFailHandler(\GuzzleHttp\Exception\BadResponseException $th, ?string $alias = null)
+    public function processFailHandler(\GuzzleHttp\Exception\TransferException $th, ?string $alias = null)
     {
-        $this->setActionResponse($th->getResponse(), false);
-        $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
-        if (is_callable($this->failHandler)) {
-            $this->response = $th->getResponse();
-            call_user_func($this->failHandler, $exception);
-        } else {
-            throw $exception;
+        if ($th instanceof \GuzzleHttp\Exception\ConnectException) {
+            $this->setActionResponse(null, false);
+            $exception = ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias);
+            if (is_callable($this->failHandler)) {
+                call_user_func($this->failHandler, $exception);
+            } else {
+                throw $exception;
+            }    
+        }else if($th instanceof \GuzzleHttp\Exception\BadResponseException){
+            $this->setActionResponse($th->getResponse(), false);
+            $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
+            if (is_callable($this->failHandler)) {
+                $this->response = $th->getResponse();
+                call_user_func($this->failHandler, $exception);
+            } else {
+                throw $exception;
+            }    
         }
     }
 
