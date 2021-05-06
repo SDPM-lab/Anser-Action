@@ -33,20 +33,28 @@ class ActionException extends AnserException
     protected $action;
 
     /**
+     * 是否是連線錯誤
+     *
+     * @var boolean
+     */
+    protected $isConnectError = false;
+
+    /**
      * 初始化　ActionException
      *
      * @param string $message 錯誤訊息
      * @param ResponseInterface|null $response Psr-7 response 物件（如果有）
      */
-    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null)
+    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null, $isConnectError = false)
     {
         parent::__construct($message);
         $this->response = $response;
         $this->request = $request;
         $this->action = $action;
+        $this->isConnectError = $isConnectError;
     }
 
-    public static function forServiceAction5XXError(
+    public static function forServiceActionFailError(
         string $serviceName,
         RequestSettings $requestSettings,
         ResponseInterface $response,
@@ -55,27 +63,6 @@ class ActionException extends AnserException
         ?string $alias = null
     ): ActionException {
         $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 發生 HTTP  {$response->getStatusCode()}  異常。";
-        if ($alias) {
-            $msg = "{$alias}-" . $msg;
-        }
-
-        return new self(
-            $msg,
-            $response,
-            $request,
-            $action
-        );
-    }
-
-    public static function forServiceAction4XXError(
-        string $serviceName,
-        RequestSettings $requestSettings,
-        ResponseInterface $response,
-        RequestInterface $request,
-        ActionInterface $action,
-        ?string $alias = null
-    ): ActionException {
-        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生 HTTP {$response->getStatusCode()} 異常。";
         if ($alias) {
             $msg = "{$alias}-" . $msg;
         }
@@ -104,7 +91,8 @@ class ActionException extends AnserException
             $msg,
             null,
             $request,
-            $action
+            $action,
+            true
         );
     }
 
@@ -153,8 +141,45 @@ class ActionException extends AnserException
         return $this->action;
     }
 
-    // public static function forServiceConfigNotFound(string $serviceName): GatewayException
-    // {
-    //     return new static("取得 {$serviceName} 服務實體設定失敗，請確認 /Config/Gateway.php 是否具有正確設定。");
-    // }
+    /**
+     * 回傳 HTTP 狀態碼
+     *
+     * @return integer
+     */
+    public function getStatusCode(): int
+    {
+        return $this->response->getStatusCode();
+    }
+
+    /**
+     * 是否為 Client Error (Client code 4XX)
+     *
+     * @return boolean
+     */
+    public function isClientError(): bool
+    {
+        $statusCode = $this->response->getStatusCode();
+        return $statusCode >= 400 && $statusCode < 500;
+    }
+
+    /**
+     * 是否為 Server Error (Status code 5XX)
+     *
+     * @return boolean
+     */
+    public function isServerError(): bool
+    {
+        $statusCode = $this->response->getStatusCode();
+        return $statusCode >= 500;
+    }
+
+    /**
+     * 判斷是否為伺服器連線錯誤
+     *
+     * @return boolean
+     */
+    public function isConnectError(): bool
+    {
+        return $this->isConnectError;
+    }
 }

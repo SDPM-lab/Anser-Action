@@ -19,7 +19,7 @@ class SimpleServiceException extends AnserException
 
     public static function forServiceNameNull(): SimpleServiceException
     {
-        return new self("必須 overwrite 父類別 ReSimpleService 的成員變數 serviceName；在 serviceName 變數中宣告你在服務列表中定義的任一服務名稱。");
+        return new self("必須 overwrite 父類別 SimpleService 的成員變數 serviceName；在 serviceName 變數中宣告你在服務列表中定義的任一服務名稱。");
     }
 
     public static function forFilterNotFound(): SimpleServiceException
