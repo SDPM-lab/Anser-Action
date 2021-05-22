@@ -175,14 +175,6 @@ class Action implements ActionInterface
         } catch (\GuzzleHttp\Exception\TransferException $th){
             $this->processFailHandler($th);
         }
-        // catch (\GuzzleHttp\Exception\ClientException $th) {
-        //     $this->processFailHandler($th);
-        // } catch (\GuzzleHttp\Exception\ServerException $th) {
-        //     $this->processFailHandler($th);
-        // } catch (\GuzzleHttp\Exception\ConnectException $th) {
-        //     $this->isSuccess = false;
-        //     throw ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this);
-        // }
 
         //執行後濾器
         $this->useFilters(false);
@@ -209,7 +201,7 @@ class Action implements ActionInterface
         $options = $this->getFinallyRequestOption($isRetry);
         $promise = $this->client->requestAsync(
             $this->method,
-            $this->baseUrl . $this->path,
+            $this->baseUrl . $this->getRequestPath(),
             $options
         )->then(
             function (ResponseInterface $res) use (&$runtimeAction) {
@@ -234,11 +226,6 @@ class Action implements ActionInterface
                 if ($th instanceof \GuzzleHttp\Exception\TransferException) {
                     $runtimeAction->processFailHandler($th, $alias);
                 }
-                //  else if ($th instanceof \GuzzleHttp\Exception\ClientException) {
-                //     $runtimeAction->processFailHandler($th, $alias);
-                // } else if ($th instanceof \GuzzleHttp\Exception\ServerException) {
-                //     $runtimeAction->processFailHandler($th, $alias);
-                // }
             }
         );
         return $promise;
@@ -253,17 +240,28 @@ class Action implements ActionInterface
     protected function sendRequest(bool $isRetry = false): ResponseInterface
     {
         $options = $this->getFinallyRequestOption($isRetry);
+        $response = $this->client->request(
+            $this->method,
+            $this->baseUrl . $this->getRequestPath(),
+            $options
+        );
+        return $response;
+    }
+
+    /**
+     * 取得正確規格的 Path
+     *
+     * @param string $path
+     * @return string
+     */
+    protected function getRequestPath():string
+    {
         if (substr($this->path, 0, 1) === '/') {
             $path = substr($this->path, 1);
         } else {
             $path = $this->path;
         }
-        $response = $this->client->request(
-            $this->method,
-            $this->baseUrl . $path,
-            $options
-        );
-        return $response;
+        return $path;
     }
 
     /**

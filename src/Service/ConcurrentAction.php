@@ -3,7 +3,6 @@
 namespace SDPMlab\Anser\Service;
 
 use SDPMlab\Anser\Service\ActionInterface;
-use GuzzleHttp\Pool;
 
 class ConcurrentAction
 {
@@ -26,7 +25,7 @@ class ConcurrentAction
      * 設定參與並行連線的 Actions
      *
      * @param array<string,\SDPMlab\Anser\Service\ActionInterface> $actionList 傳入由<別名,Action實體> 組成的鍵值陣列
-     * @return ConcurrentAction 
+     * @return ConcurrentAction
      */
     public function setActions(array $actionList): ConcurrentAction
     {
@@ -51,18 +50,17 @@ class ConcurrentAction
     }
 
     /**
-     * 將在列表中被設定的 Action 以 
+     * 執行並行連線
      *
      * @return void
      */
     public function send()
     {
-        $promises = [];
         foreach ($this->actionList as $alias => $action) {
             $asyncAction = $action->doAsync($alias);
-            $promises[$alias] = $asyncAction;
+            $this->promises[$alias] = $asyncAction;
         }
-        \GuzzleHttp\Promise\Utils::unwrap($promises);
+        \GuzzleHttp\Promise\Utils::unwrap($this->promises);
     }
 
     /**
