@@ -158,6 +158,9 @@ class ActionException extends AnserException
      */
     public function isClientError(): bool
     {
+        if(is_null($this->response)){
+            return false;
+        }
         $statusCode = $this->response->getStatusCode();
         return $statusCode >= 400 && $statusCode < 500;
     }
@@ -169,6 +172,9 @@ class ActionException extends AnserException
      */
     public function isServerError(): bool
     {
+        if(is_null($this->response)){
+            return false;
+        }
         $statusCode = $this->response->getStatusCode();
         return $statusCode >= 500;
     }
