@@ -1,2 +1,2 @@
 # Anser-Action
-PHP API Composition Pattern Library
+PHP simple API connection library

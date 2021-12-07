@@ -1,10 +1,10 @@
 {
     "name": "sdpmlab/anser-action",
-    "description": "Make Codeigniter4 work on Roadrunner Server.",
+    "description": "PHP simple API connection library.",
     "keywords": [
 		"php",
-		"microservice",
-		"aggregator"
+		"API",
+        "HTTP Client"
 	],
     "type": "library",
     "license": "MIT",
@@ -12,13 +12,17 @@
         {
             "name": "SDPM-lab",
             "homepage": "https://github.com/SDPM-lab"
+        },
+        {
+            "name": "MonkenWu",
+            "homepage": "https://github.com/monkenWu"
         }
     ],
     "minimum-stability": "stable",
     "require": {
         "php" : "^7.4",
         "psr/http-message": "^1.0",
-	"guzzlehttp/guzzle": "^7.0"
+	    "guzzlehttp/guzzle": "^7.0"
     },
     "autoload": {
 		"psr-4": {

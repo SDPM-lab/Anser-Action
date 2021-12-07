@@ -75,6 +75,18 @@ class ServiceList
      */
     public static function getServiceData(string $serviceName): ?ServiceSettings
     {
+        //如果 Service Name 是 URL
+        if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
+            $parseUrl = parse_url($serviceName);
+            return new \SDPMlab\Anser\Service\ServiceSettings(
+                $parseUrl["host"],
+                $parseUrl["host"],
+                $parseUrl["port"] ?? 80,
+                $parseUrl["scheme"] === "https"
+            );
+        }
+        
+        //如果 Service Name 已被全域紀錄
         if (isset(static::$localServiceList[$serviceName])) {
             return static::$localServiceList[$serviceName];
         } else {
