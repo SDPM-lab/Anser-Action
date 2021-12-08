@@ -1,8 +1,7 @@
 # Anser-Action
 
 <p align="center">
-  <img src="https://i.imgur.com/XxTIxD7.png
-" alt="logo" width="500" />
+  <img src="https://i.imgur.com/XxTIxD7.png" alt="logo" width="500" />
 </p>
 
 Anser-Action：PHP 簡單 API 連線程式庫。
