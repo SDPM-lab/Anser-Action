@@ -78,10 +78,15 @@ class ServiceList
         //如果 Service Name 是 URL
         if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
             $parseUrl = parse_url($serviceName);
+            if(isset($parseUrl["port"])){
+                $port = (int)$parseUrl["port"];
+            }else{
+                $port = $parseUrl["scheme"] === "https" ? 443 : 80;
+            }
             return new \SDPMlab\Anser\Service\ServiceSettings(
                 $parseUrl["host"],
                 $parseUrl["host"],
-                $parseUrl["port"] ?? 80,
+                $port,
                 $parseUrl["scheme"] === "https"
             );
         }

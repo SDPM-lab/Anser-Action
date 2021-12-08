@@ -80,9 +80,10 @@ class ActionException extends AnserException
         RequestSettings $requestSettings,
         RequestInterface $request,
         ActionInterface $action,
-        ?string $alias = null
+        ?string $alias = null,
+        string $guzzleMsg
     ): ActionException {
-        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生伺服器連線異常。";
+        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生伺服器連線異常。Guzzle7: {$guzzleMsg}";
         if ($alias) {
             $msg = "{$alias}-" . $msg;
         }

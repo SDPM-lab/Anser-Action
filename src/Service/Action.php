@@ -311,7 +311,7 @@ class Action implements ActionInterface
     {
         if ($th instanceof \GuzzleHttp\Exception\ConnectException) {
             $this->setActionResponse(null, false);
-            $exception = ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias);
+            $exception = ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias, $th->getMessage());
             if (is_callable($this->failHandler)) {
                 call_user_func($this->failHandler, $exception);
             } else {
