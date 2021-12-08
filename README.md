@@ -102,7 +102,7 @@ $data = $action->do()->getMeaningData();
 var_dump($data);
 ```
 
-### Parallel Connection
+### Concurrent Connection
 
 You can directly use the `ConcurrentAction` class provided by the library.
 By passing multiple `Action` entities, you will be able to achieve parallel connection fastly, and get the processed results uniformly.
