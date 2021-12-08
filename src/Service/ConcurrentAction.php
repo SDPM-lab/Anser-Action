@@ -75,4 +75,18 @@ class ConcurrentAction
         return $this->actionList[$alias];
     }
 
+    /**
+     * 取得所有參與並行連線的 Action meaning data
+     *
+     * @return array
+     */
+    public function getActionsMeaningData(): array
+    {
+        $datas = [];
+        foreach ($this->actionList as $alias => $action) {
+            $datas[$alias] = $action->getMeaningData();
+        }
+        return $datas;
+    }
+
 }

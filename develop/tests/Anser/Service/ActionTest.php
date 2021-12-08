@@ -298,9 +298,26 @@ class ActionTest extends CIUnitTestCase
         $action = new Action("errorService","GET","/api/v1/fail/1");
         try {
             $action->setTimeout(1.0)->do();
-        } catch (\Exception $e) {
+        } catch (\SDPMlab\Anser\Exception\ActionException $e) {
             $this->assertInstanceOf(ActionException::class,$e);
             $this->assertTrue($e->isConnectError());
         }
+    }
+
+    public function testUrlServiceNameAction()
+    {
+        $action = new Action("http://localhost:8080", "GET", "/api/v1/user");
+        $action->do();
+        $response = $action->getResponse();
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+        $data = json_decode($response->getBody()->getContents(),true)["data"];
+        $user = $data[0];
+        $this->assertEquals($user,[
+            "id" => 1,
+            "name" => "amos",
+            "age" => 24
+        ]); 
+        $this->assertEquals($action->getNumnerOfDoAction(),1);
+        $this->assertEquals($action->isSuccess(),true);
     }
 }

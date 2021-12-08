@@ -1,36 +1,35 @@
-# Anser-Action：A simple API connection library for PHP
+# Anser-Action：PHP 簡單 API 連線程式庫。
 
 <p align="center">
   <img src="https://i.imgur.com/XxTIxD7.png" alt="logo" width="500" />
 </p>
 
-Anser-Action is a library based on `Guzzle7`, it provides you the ability to handle HTTP responses and exceptions like using the `callback` design pattern of `jQuery Ajax`.
-Besides, Anser-Action is also able to achieve parallel connection swiftly, enables you to handle multiple HTTP connections and responses in a short time.
+Anser-Action 是一款基於 `Guzzle7` 的程式庫，他能夠讓你以類似於 `jQuery Ajax` 的 `callback` 設計模式處理 HTTP 回應與 HTTP 例外。並且，Anser-Action 也能夠迅速達成並行連線的效果，讓你快速處理多個 HTTP 的連線與回應。
 
-## Installation
+## 安裝
 
-### Requirements
+### 需求
 
 1. PHP 7.2.5↑
 1. Composer
-2. [Requirements](https://docs.guzzlephp.org/en/stable/overview.html#requirements) for installing Guzzle7
+2. 符合 Guzzle7 所需的 [安裝需求](https://docs.guzzlephp.org/en/stable/overview.html#requirements
+)
 
-### Composer installation
+### Composer 安裝
 
-Use Composer to download the needed dependencies and libraries under your project root directory.
+於專案根目錄下，使用 Composer 下載程式庫與其所需之依賴。
 
 ```
 composer require sdpmlab/anser-action
 ```
 
-## Quick Start
+## 快速開始
 
-### Single HTTP Connection
+### 單個 HTTP 連線
 
-Through the `Action` object provided by Anser, you can define your HTTP connection straightforwardly.
-By setting up the `doneHandler`, you can design the execution logic when the connection succeeded, and then store the needed data inside `Action` object by means of `setMeaningData`.
+透過 Anser 提供的 `Action` 物件，你可以直觀地定義你的 HTTP 連線。透過 `doneHandler` 的設定，你能夠設定連線成功時的執行邏輯，並透過 `setMeaningData` 將所需的資料暫存在 `Action` 實體中。
 
-`Action` must call the `do()` method to execute connection, subsequently, you can take out the processed data through `getMeaningData()`.
+`Action` 必須呼叫 `do()` 方法執行連線，隨後即可以透過 `getMeaningData()` 將處理完成的資料取出。
 
 ```php
 require './vendor/autoload.php';
@@ -55,9 +54,9 @@ $data = $action->do()->getMeaningData();
 var_dump($data[0]);
 ```
 
-### Error handling
+### 錯誤處理
 
-You can set up `failHandler` callback function to define the processing logic when encountering HTTP connection errors, server errors, or the client errors.
+你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到 HTTP 連線錯誤、伺服器錯誤，以及客戶端錯誤時的處理邏輯。
 
 ```php
 <?php
@@ -102,10 +101,9 @@ $data = $action->do()->getMeaningData();
 var_dump($data);
 ```
 
-### Parallel Connection
+### 並行連線
 
-You can directly use the `ConcurrentAction` class provided by the library.
-By passing multiple `Action` entities, you will be able to achieve parallel connection fastly, and get the processed results uniformly.
+你可以直接使用程式庫中提供的 `ConcurrentAction` 類別，透過傳入複數 `Action` 實體，將可以快速地進行並行連線，並統一取得處理結果。
 
 ```php
 <?php
@@ -169,10 +167,9 @@ $concurrent->setActions([
 var_dump($concurrent->getActionsMeaningData());
 ```
 
-### Centralized Connection Management
+### 集中管理連線
 
-Inherit `\SDPMlab\Anser\Service\SimpleService` class to manage and make similar connections abstract.
-These connections will be able to share basic configurations with each other, and through this design pattern, you can reduce code replication maximally and enhance maintainability as well.
+你可以透過繼承 `\SDPMlab\Anser\Service\SimpleService` 類別來統一管理並抽象化相似的連線，這些連線將可以共享基本組態，透過這種設計模式可以最大程度地降低程式碼的重複，並增加可維護性。
 
 ```php
 <?php

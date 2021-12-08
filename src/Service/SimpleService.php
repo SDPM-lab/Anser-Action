@@ -9,7 +9,7 @@ abstract class SimpleService
 {
 
     /**
-     * 服務名稱
+     * 服務名稱或端點網址
      *
      * @var string|null
      */
