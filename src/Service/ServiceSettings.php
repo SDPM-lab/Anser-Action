@@ -9,7 +9,7 @@ class ServiceSettings
     public $port;
     public $isHttps;
 
-    public function __construct(string $name, string $address, int $port = 80, bool $isHttps)
+    public function __construct(string $name, string $address, int $port = 80, bool $isHttps = false)
     {
         $this->name = $name;
         $this->address = $address;
