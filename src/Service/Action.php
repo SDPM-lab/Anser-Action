@@ -141,6 +141,11 @@ class Action implements ActionInterface
         $this->serviceName = $serviceName;
         $this->method = $method;
         $this->path = $path;
+
+        if (is_null(ServiceList::getServiceData($this->serviceName))) {
+            throw ActionException::forServiceDataNotFound($this->serviceName);
+        }
+
         $this->baseUrl = ServiceList::getServiceData($this->serviceName)->getBaseUrl();
         $this->client = ServiceList::getHttpClient();
     }
