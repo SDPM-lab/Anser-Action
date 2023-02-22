@@ -141,7 +141,46 @@ class Action implements ActionInterface
         $this->serviceName = $serviceName;
         $this->method = $method;
         $this->path = $path;
+
+        if (is_null(ServiceList::getServiceData($this->serviceName))) {
+            throw ActionException::forServiceDataNotFound($this->serviceName);
+        }
+
         $this->baseUrl = ServiceList::getServiceData($this->serviceName)->getBaseUrl();
+        $this->client = ServiceList::getHttpClient();
+    }
+
+    /**
+     * 序列化儲存之成員變數。
+     *
+     * @return array
+     */
+    public function __sleep()
+    {
+        return [
+            'method',
+            'baseUrl',
+            'path',
+            'serviceName',
+            'requestOption',
+            'filters',
+            'doneHandler',
+            'meaningData',
+            'failHandler',
+            'isSuccess',
+            'numOfAction',
+            'retry',
+            'retryDelay',
+            'timeout',
+            'request'
+        ];
+    }
+
+    /**
+     * 反序列化後，針對 client 重新賦值。
+     */
+    public function __wakeup()
+    {
         $this->client = ServiceList::getHttpClient();
     }
 

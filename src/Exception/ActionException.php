@@ -112,6 +112,11 @@ class ActionException extends AnserException
         return new self("Action {$serviceName} Time Out 秒數必須大於 0.0 。");
     }
 
+    public static function forServiceDataNotFound(string $serviceName): ActionException
+    {
+        return new self("尚未定義 {$serviceName} 服務進服務列表內，請檢查服務的 serviceName 是否正確。");
+    }
+
     /**
      * 取得發生錯誤的 Restponse 實體
      *
