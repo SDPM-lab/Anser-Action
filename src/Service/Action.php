@@ -151,6 +151,40 @@ class Action implements ActionInterface
     }
 
     /**
+     * 序列化儲存之成員變數。
+     *
+     * @return array
+     */
+    public function __sleep()
+    {
+        return [
+            'method',
+            'baseUrl',
+            'path',
+            'serviceName',
+            'requestOption',
+            'filters',
+            'doneHandler',
+            'meaningData',
+            'failHandler',
+            'isSuccess',
+            'numOfAction',
+            'retry',
+            'retryDelay',
+            'timeout',
+            'request'
+        ];
+    }
+
+    /**
+     * 反序列化後，針對 client 重新賦值。
+     */
+    public function __wakeup()
+    {
+        $this->client = ServiceList::getHttpClient();
+    }
+
+    /**
      * 執行 Action 所定義的內容（同步執行）
      *
      * @return \SDPMlab\Anser\Service\ActionInterface
