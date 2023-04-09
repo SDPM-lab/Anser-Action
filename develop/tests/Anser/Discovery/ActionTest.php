@@ -14,6 +14,10 @@ use SDPMlab\Anser\Exception\ActionException;
 
 class ActionTest extends CIUnitTestCase
 {
+    public $fabioRouteService = '';
+    public $fabioProxyService = '';
+    public $consulService = '';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -21,7 +25,7 @@ class ActionTest extends CIUnitTestCase
             "discoverMode" => "fabio",           // Anser load balance provides "none"、"default" and "fabio" options to implement service discovery.
             "default" => [
                 'HttpClient' => ServiceList::getHttpClient(),
-                'Address'    => '140.127.74.171:8500',     // [required]
+                'Address'    => $this->consulService,     // [required]
                 'Scheme'     => 'http',                    // [optional] defaults to "http"  [option: HTTP | HTTPS]
                 // 'Datacenter' => 'name of datacenter',   // [optional]
                 // 'HttpAuth' => 'user:pass',              // [optional]
@@ -35,8 +39,8 @@ class ActionTest extends CIUnitTestCase
                 // 'JSONEncodeOpts'=> 0,                   // [optional] php json encode opt value to use when serializing requests
             ],
             "fabio" => [
-                'fabioRouteService' => '140.127.74.171:9998',
-                'fabioProxyService' => '140.127.74.171:9999',
+                'fabioRouteService' => $this->fabioRouteService,
+                'fabioProxyService' => $this->fabioProxyService,
             ]
         ]);
         ServiceList::updateDiscoverServicesList();
@@ -57,7 +61,7 @@ class ActionTest extends CIUnitTestCase
         $this->assertInstanceOf(RequestSettings::class, $requestSettings);
         $checkArray = [
             "method" => "GET",
-            "url" => "http://140.127.74.171:9999/FakeRest/",
+            "url" => $this->fabioProxyService."FakeRest/",
             "path" => "/post",
             "options" => [
                 "timeout" => 2.0
@@ -79,7 +83,7 @@ class ActionTest extends CIUnitTestCase
         ];
         $checkArray = [
             "method" => "POST",
-            "url" => "http://140.127.74.171:9999/FakeRest/",
+            "url" =>$this->fabioProxyService."FakeRest/",
             "path" => "/comments",
             "options" => $options
         ];
@@ -171,7 +175,7 @@ class ActionTest extends CIUnitTestCase
 
     public function testUrlServiceNameAction()
     {
-        $action = new Action("http://140.127.74.171:9999/", "GET", "/FakeRest/profile");
+        $action = new Action($this->fabioProxyService, "GET", "/FakeRest/profile");
         $action->do();
         $response = $action->getResponse();
         $this->assertInstanceOf(ResponseInterface::class, $response);

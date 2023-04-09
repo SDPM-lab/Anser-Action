@@ -12,6 +12,10 @@ use stdClass;
 
 class ServiceListTest extends CIUnitTestCase
 {
+    public $fabioRouteService = '';
+    public $fabioProxyService = '';
+    public $consulService = '';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -19,7 +23,7 @@ class ServiceListTest extends CIUnitTestCase
             "discoverMode" => "fabio",           // Anser load balance provides "none"、"default" and "fabio" options to implement service discovery.
             "default" => [
                 'HttpClient' => ServiceList::getHttpClient(),
-                'Address'    => '140.127.74.171:8500',     // [required]
+                'Address'    => $this->consulService,     // [required]
                 'Scheme'     => 'http',                    // [optional] defaults to "http"  [option: HTTP | HTTPS]
                 // 'Datacenter' => 'name of datacenter',   // [optional]
                 // 'HttpAuth' => 'user:pass',              // [optional]
@@ -33,8 +37,8 @@ class ServiceListTest extends CIUnitTestCase
                 // 'JSONEncodeOpts'=> 0,                   // [optional] php json encode opt value to use when serializing requests
             ],
             "fabio" => [
-                'fabioRouteService' => '140.127.74.171:9998',
-                'fabioProxyService' => '140.127.74.171:9999',
+                'fabioRouteService' => $this->fabioRouteService,
+                'fabioProxyService' => $this->fabioProxyService,
             ]
         ]);
     }
@@ -85,7 +89,7 @@ class ServiceListTest extends CIUnitTestCase
 
         $serviceInfo = new stdClass();
         $serviceInfo->service = "CI5";
-        $serviceInfo->fabioProxyHost = "http://140.127.74.171:9998";
+        $serviceInfo->fabioProxyHost = $this->fabioProxyService;
      
         ServiceList::getDiscover()::$discoveryList[$serviceInfo->service] = new ServiceSettings(
             $serviceInfo->service,
@@ -96,7 +100,7 @@ class ServiceListTest extends CIUnitTestCase
         );
 
         $serviceBaseUrl = ServiceList::getDiscoverService($serviceInfo->service)->getBaseUrl();
-        $this->assertEquals($serviceBaseUrl,"http://140.127.74.171:9998/CI5/");
+        $this->assertEquals($serviceBaseUrl,$this->fabioProxyService."CI5/");
     }
 
     public function testServiceNameNotExist()
@@ -114,7 +118,7 @@ class ServiceListTest extends CIUnitTestCase
             // "discoverMode" => "fabio",           // Anser load balance provides "none"、"default" and "fabio" options to implement service discovery.
             "default" => [
                 'HttpClient' => ServiceList::getHttpClient(),
-                'Address'    => '140.127.74.171:8500',     // [required]
+                'Address'    => $this->consulService,     // [required]
                 'Scheme'     => 'http',                    // [optional] defaults to "http"  [option: HTTP | HTTPS]
                 // 'Datacenter' => 'name of datacenter',   // [optional]
                 // 'HttpAuth' => 'user:pass',              // [optional]
@@ -128,8 +132,8 @@ class ServiceListTest extends CIUnitTestCase
                 // 'JSONEncodeOpts'=> 0,                   // [optional] php json encode opt value to use when serializing requests
             ],
             "fabio" => [
-                'fabioRouteService' => '140.127.74.171:9998',
-                'fabioProxyService' => '140.127.74.171:9999',
+                'fabioRouteService' => $this->fabioRouteService,
+                'fabioProxyService' => $this->fabioProxyService,
             ]
         ]);
 
@@ -139,7 +143,7 @@ class ServiceListTest extends CIUnitTestCase
             "discoverMode" => "fabio",           // Anser load balance provides "none"、"default" and "fabio" options to implement service discovery.
             // "default" => [
             //     'HttpClient' => ServiceList::getHttpClient(),
-            //     'Address'    => '140.127.74.171:8500',     // [required]
+                // 'Address'    => $this->consulService,     // [required]
             //     'Scheme'     => 'http',                    // [optional] defaults to "http"  [option: HTTP | HTTPS]
             //     // 'Datacenter' => 'name of datacenter',   // [optional]
             //     // 'HttpAuth' => 'user:pass',              // [optional]
@@ -153,8 +157,8 @@ class ServiceListTest extends CIUnitTestCase
             //     // 'JSONEncodeOpts'=> 0,                   // [optional] php json encode opt value to use when serializing requests
             // ],
             "fabio" => [
-                'fabioRouteService' => '140.127.74.171:9998',
-                'fabioProxyService' => '140.127.74.171:9999',
+                'fabioRouteService' => $this->fabioRouteService,
+                'fabioProxyService' => $this->fabioProxyService,
             ]
         ]);
 
@@ -164,7 +168,7 @@ class ServiceListTest extends CIUnitTestCase
             "discoverMode" => "fabio",           // Anser load balance provides "none"、"default" and "fabio" options to implement service discovery.
             "default" => [
                 'HttpClient' => ServiceList::getHttpClient(),
-                'Address'    => '140.127.74.171:8500',     // [required]
+                'Address'    => $this->consulService,     // [required]
                 'Scheme'     => 'http',                    // [optional] defaults to "http"  [option: HTTP | HTTPS]
                 // 'Datacenter' => 'name of datacenter',   // [optional]
                 // 'HttpAuth' => 'user:pass',              // [optional]
@@ -176,11 +180,7 @@ class ServiceListTest extends CIUnitTestCase
                 // 'CertFile' => '',                       // [optional] path to client public key.  if set, requires KeyFile also be set
                 // 'KeyFile' => '',                        // [optional] path to client private key.  if set, requires CertFile also be set
                 // 'JSONEncodeOpts'=> 0,                   // [optional] php json encode opt value to use when serializing requests
-            ],
-            // "fabio" => [
-            //     'fabioRouteService' => '140.127.74.171:9998',
-            //     'fabioProxyService' => '140.127.74.171:9999',
-            // ]
+            ]
         ]);
     }
 }
