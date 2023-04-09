@@ -22,7 +22,10 @@
     "require": {
         "php" : "^7.4||^8.0",
         "psr/http-message": "^1.0",
-	    "guzzlehttp/guzzle": "^7.0"
+	    "guzzlehttp/guzzle": "^7.0",
+        "dcarbone/php-consul-api": "^1.1",
+        "friendsofphp/php-cs-fixer": "^3.16",
+        "workerman/workerman": "^4.1"
     },
     "autoload": {
 		"psr-4": {

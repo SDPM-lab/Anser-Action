@@ -8,7 +8,9 @@
 		"php": "^7.3||^8.0",
 		"codeigniter4/framework": "^4",
 		"psr/http-message": "^1.0",
-		"guzzlehttp/guzzle": "^7.0"
+		"guzzlehttp/guzzle": "^7.0",
+		"friendsofphp/php-cs-fixer": "^3.16",
+		"workerman/workerman": "^4.1"
 	},
 	"require-dev": {
 		"fakerphp/faker": "^1.9",
