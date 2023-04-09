@@ -18,13 +18,6 @@ class ServiceList
     protected static $localServiceList = [];
 
     /**
-     * 服務發現清單
-     *
-     * @var array
-     */
-    protected static $discoveryList = [];
-
-    /**
      * Guzzle7 HTTP Client 實體
      *
      * @var \GuzzleHttp\Client
@@ -95,7 +88,7 @@ class ServiceList
         //如果 Service Name 是 URL
         if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
             $parseUrl = parse_url($serviceName);
-            if(isset($parseUrl["port"])) {
+            if (isset($parseUrl["port"])) {
                 $port = (int)$parseUrl["port"];
             } else {
                 $port = $parseUrl["scheme"] === "https" ? 443 : 80;
@@ -161,7 +154,7 @@ class ServiceList
      * @return void
      */
     public static function setDiscoverConfig(array $config): void
-    {   
+    {
         self::$discover =  new DiscoverAdapter(self::getHttpClient(), $config);
     }
 
@@ -172,7 +165,7 @@ class ServiceList
      */
     public static function getDiscover(): AnserDiscover|FabioDiscover
     {
-        var_dump("List",self::$discover::class);
+        var_dump("List", self::$discover::class);
         return self::$discover->getDiscover();
     }
 

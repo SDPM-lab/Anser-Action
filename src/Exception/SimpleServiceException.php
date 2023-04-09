@@ -6,7 +6,6 @@ use SDPMlab\Anser\Exception\AnserException;
 
 class SimpleServiceException extends AnserException
 {
-
     /**
      * 初始化　SimpleServiceException
      *

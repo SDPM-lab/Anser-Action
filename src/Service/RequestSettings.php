@@ -8,7 +8,7 @@ class RequestSettings
     public $url;
     public $path;
     public $options;
-    
+
     public function __construct(string $method, string $url, string $path, array $options)
     {
         $this->method = $method;
@@ -18,5 +18,3 @@ class RequestSettings
     }
 
 }
-
-?>

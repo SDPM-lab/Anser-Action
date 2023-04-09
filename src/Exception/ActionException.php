@@ -10,7 +10,6 @@ use SDPMlab\Anser\Service\RequestSettings;
 
 class ActionException extends AnserException
 {
-
     /**
      * psr 響應實體
      *
@@ -164,7 +163,7 @@ class ActionException extends AnserException
      */
     public function isClientError(): bool
     {
-        if(is_null($this->response)){
+        if(is_null($this->response)) {
             return false;
         }
         $statusCode = $this->response->getStatusCode();
@@ -178,7 +177,7 @@ class ActionException extends AnserException
      */
     public function isServerError(): bool
     {
-        if(is_null($this->response)){
+        if(is_null($this->response)) {
             return false;
         }
         $statusCode = $this->response->getStatusCode();

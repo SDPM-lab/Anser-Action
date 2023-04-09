@@ -6,7 +6,6 @@ use SDPMlab\Anser\Service\ActionInterface;
 
 class ConcurrentAction
 {
-
     /**
      * action 列表。其組成結構為<別名,Action實體>
      *

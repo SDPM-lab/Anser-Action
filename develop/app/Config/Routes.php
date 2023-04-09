@@ -23,7 +23,6 @@ $routes->setDefaultMethod('index');
 $routes->setTranslateURIDashes(false);
 $routes->set404Override();
 $routes->setAutoRoute(true);
-// $routes->cli('start-worker','SDPMlab\Anser\Discovery\DiscoverRunner');
 /*
  * --------------------------------------------------------------------
  * Route Definitions

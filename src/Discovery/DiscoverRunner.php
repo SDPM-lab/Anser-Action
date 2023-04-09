@@ -1,4 +1,5 @@
 <?php
+
 namespace SDPMlab\Anser\Discovery;
 
 use CodeIgniter\CLI\BaseCommand;

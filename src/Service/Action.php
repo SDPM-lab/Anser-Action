@@ -189,7 +189,7 @@ class Action implements ActionInterface
      *
      * @return \SDPMlab\Anser\Service\ActionInterface
      */
-    function do(): ActionInterface
+    public function do(): ActionInterface
     {
         //執行前濾器
         $this->useFilters(true);
@@ -211,7 +211,7 @@ class Action implements ActionInterface
                     continue;
                 }
             }
-        } catch (\GuzzleHttp\Exception\TransferException $th){
+        } catch (\GuzzleHttp\Exception\TransferException $th) {
             $this->processFailHandler($th);
         }
 
@@ -219,7 +219,9 @@ class Action implements ActionInterface
         $this->useFilters(false);
 
         //判斷是否需要過濾意義資料
-        if ($this->isSuccess) $this->useDoneHandler();
+        if ($this->isSuccess) {
+            $this->useDoneHandler();
+        }
 
         return $this;
     }
@@ -293,7 +295,7 @@ class Action implements ActionInterface
      * @param string $path
      * @return string
      */
-    protected function getRequestPath():string
+    protected function getRequestPath(): string
     {
         if (substr($this->path, 0, 1) === '/') {
             $path = substr($this->path, 1);
@@ -355,8 +357,8 @@ class Action implements ActionInterface
                 call_user_func($this->failHandler, $exception);
             } else {
                 throw $exception;
-            }    
-        }else if($th instanceof \GuzzleHttp\Exception\BadResponseException){
+            }
+        } elseif($th instanceof \GuzzleHttp\Exception\BadResponseException) {
             $this->setActionResponse($th->getResponse(), false);
             $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
             if (is_callable($this->failHandler)) {
@@ -364,7 +366,7 @@ class Action implements ActionInterface
                 call_user_func($this->failHandler, $exception);
             } else {
                 throw $exception;
-            }    
+            }
         }
     }
 
@@ -430,7 +432,7 @@ class Action implements ActionInterface
      * 通常，你不會使用到這個方法。isSuccess 的判斷是在 Action-Do 之後自動執行的。
      * 若是你所溝通的端點不論是成功或失敗都會回傳 Http status code 200。
      * 那麼你就需要透過這個方法自行切換 Action 的最終狀態。
-     * 
+     *
      * @param boolean $isSuccess True 為執行成功 False 則為失敗
      * @return ActionInterface
      */

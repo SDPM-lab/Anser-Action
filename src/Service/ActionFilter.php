@@ -23,12 +23,12 @@ class ActionFilter
         $type = $isBefore ? "before" : "after";
         foreach (static::$globalFilter[$type] as $className) {
             $filter = static::getFilterInstance($className);
-            if($isBefore){
+            if($isBefore) {
                 $filter->beforeCallService($action);
-            }else{
+            } else {
                 $filter->afterCallService($action);
             }
-        }   
+        }
     }
 
     /**
@@ -51,7 +51,7 @@ class ActionFilter
      */
     public static function setGlobalBeforeFilter(string $className)
     {
-        if(!in_array($className,static::$globalFilter["before"])){
+        if(!in_array($className, static::$globalFilter["before"])) {
             static::$globalFilter["before"][] = $className;
         }
     }
@@ -64,7 +64,7 @@ class ActionFilter
      */
     public static function setGlobalAfterFilter(string $className)
     {
-        if(!in_array($className,static::$globalFilter["after"])){
+        if(!in_array($className, static::$globalFilter["after"])) {
             static::$globalFilter["after"][] = $className;
         }
     }
@@ -114,7 +114,7 @@ class ActionFilter
      * @param string $className filter 類別名稱
      * @return FilterInterface
      */
-    protected static function getFilterInstance(string $className):FilterInterface
+    protected static function getFilterInstance(string $className): FilterInterface
     {
         return new $className();
     }
