@@ -147,7 +147,7 @@ class ServiceList
     public static function getHttpClient(): \GuzzleHttp\Client
     {
         if(!static::$client instanceof \GuzzleHttp\Client){
-            if(static::$globalHandlerStack === null){
+            if(static::$globalHandlerCallback === null){
                 static::$client = new \GuzzleHttp\Client();
             } else {
                 $stack = HandlerStack::create(self::$globalHandlerCallback); // Wrap w/ middleware
