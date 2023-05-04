@@ -27,7 +27,7 @@ class ServiceSettings
         $url = '';
         $url .= $this->isHttps ? 'https://' : 'http://';
         $url .= $this->address;
-        if($this->port == 80 && $this->port == 443){
+        if($this->port == 80 || $this->port == 443){
             $url .= '/';
         }else{
             $url .= ':' . $this->port .'/';
