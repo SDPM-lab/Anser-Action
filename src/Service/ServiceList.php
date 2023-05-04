@@ -3,26 +3,34 @@
 namespace SDPMlab\Anser\Service;
 
 use SDPMlab\Anser\Service\ServiceSettings;
+use GuzzleHttp\HandlerStack;
 
 class ServiceList
 {
 
     /**
-     * 本地服務清單
+     * Local Service List
      *
      * @var array
      */
     protected static $localServiceList = [];
+
+    /**
+     * Global HandlerStack callback
+     *
+     * @var null|callable
+     */
+    protected static $globalHandlerCallback = null;
     
     /**
-     * Guzzle7 HTTP Client 實體
+     * Guzzle7 HTTP Client Instance
      *
      * @var \GuzzleHttp\Client
      */
     protected static $client;
 
     /**
-     * 設定 Local Service List
+     * Set local service list
      *
      * @return void
      */
@@ -39,12 +47,23 @@ class ServiceList
     }
 
     /**
-     * 新增一筆 Service 資料至 service list
+     * Guzzel will use this HandlerStack to handle the Request.
      *
-     * @param string $name 服務名稱
-     * @param string $address 服務地址
-     * @param integer $port 服務埠號
-     * @param boolean $isHttps 是否為 Https 連線
+     * @param HandlerStack $handlerStack
+     * @return void
+     */
+    public static function setGlobalHandlerStack(callable $handler)
+    {
+        static::$globalHandlerCallback = $handler;
+    }
+
+    /**
+     * Add a new service to local service list.
+     *
+     * @param string $name Service Name
+     * @param string $address Service Address
+     * @param integer $port Service Port
+     * @param boolean $isHttps Is HTTPS or not
      * @return void
      */
     public static function addLocalService(string $name, string $address, int $port, bool $isHttps): void
@@ -58,7 +77,7 @@ class ServiceList
     }
 
     /**
-     * 取得本地服務清單陣列
+     * Get local service list
      *
      * @return array
      */
@@ -68,14 +87,13 @@ class ServiceList
     }
 
     /**
-     * 取得單一服務設定
+     * get single service data
      *
      * @param string $serviceName 服務名稱
      * @return ServiceSettings|null
      */
     public static function getServiceData(string $serviceName): ?ServiceSettings
     {
-        //如果 Service Name 是 URL
         if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
             $parseUrl = parse_url($serviceName);
             if(isset($parseUrl["port"])){
@@ -91,7 +109,6 @@ class ServiceList
             );
         }
         
-        //如果 Service Name 已被全域紀錄
         if (isset(static::$localServiceList[$serviceName])) {
             return static::$localServiceList[$serviceName];
         } else {
@@ -100,7 +117,7 @@ class ServiceList
     }
 
     /**
-     * 清空服務清單陣列
+     * Clear the list of local services
      *
      * @return void
      */
@@ -110,7 +127,7 @@ class ServiceList
     }
 
     /**
-     * 移除服務清單中的某個服務設定
+     * Remove a service from local service list
      *
      * @param string $serviceName 服務名稱
      * @return void
@@ -123,14 +140,19 @@ class ServiceList
     }
 
     /**
-     * 回傳共享服務實體
+     * Get Guzzle7 HTTP Client shared instance
      *
      * @return \GuzzleHttp\Client
      */
     public static function getHttpClient(): \GuzzleHttp\Client
     {
         if(!static::$client instanceof \GuzzleHttp\Client){
-            static::$client = new \GuzzleHttp\Client();
+            if(static::$globalHandlerStack === null){
+                static::$client = new \GuzzleHttp\Client();
+            } else {
+                $stack = HandlerStack::create(self::$globalHandlerCallback); // Wrap w/ middleware
+                static::$client = new \GuzzleHttp\Client(['handler' => $stack]);
+            }
         }
         return static::$client;
     }

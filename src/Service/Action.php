@@ -207,7 +207,6 @@ class Action implements ActionInterface
                     if ($this->numOfAction > $this->retry) {
                         throw $th;
                     }
-                    sleep($this->retryDelay);
                     continue;
                 }
             }
