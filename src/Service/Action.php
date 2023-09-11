@@ -485,7 +485,7 @@ class Action implements ActionInterface
         $finallyOptions = $this->requestOption;
         $finallyOptions["timeout"] = $this->timeout;
         if ($isRetry) {
-            $finallyOptions["delay"] = $this->retryDelay;
+            $finallyOptions["delay"] = ($this->retryDelay * 1000);
         }
 
         return $finallyOptions;
