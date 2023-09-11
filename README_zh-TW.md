@@ -1,7 +1,7 @@
 # Anser-Action：PHP 簡單 API 連線程式庫。
 
 <p align="center">
-  <img src="https://i.imgur.com/XxTIxD7.png" alt="logo" width="500" />
+  <img src="https://i.imgur.com/2vRAcI0.png" alt="logo" width="500" />
 </p>
 
 Anser-Action 是一款基於 `Guzzle7` 的程式庫，他能夠讓你以類似於 `jQuery Ajax` 的 `callback` 設計模式處理 HTTP 回應與 HTTP 例外。並且，Anser-Action 也能夠迅速達成並行連線的效果，讓你快速處理多個 HTTP 的連線與回應。

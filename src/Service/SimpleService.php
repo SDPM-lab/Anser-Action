@@ -88,7 +88,7 @@ abstract class SimpleService
         return $action;
     }
 
-    final private function setFilters(Action &$action)
+    private function setFilters(Action &$action)
     {
         //判斷是否有 before after 成員存在
         if(!isset($this->filters["before"]) || !isset($this->filters["after"])){

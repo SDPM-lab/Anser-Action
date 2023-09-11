@@ -1,7 +1,7 @@
 # Anser-Action：A simple API connection library for PHP
 
 <p align="center">
-  <img src="https://i.imgur.com/XxTIxD7.png" alt="logo" width="500" />
+  <img src="https://i.imgur.com/2vRAcI0.png" alt="logo" width="500" />
 </p>
 
 Anser-Action is a library based on `Guzzle7`, it provides you the ability to handle HTTP responses and exceptions like using the `callback` design pattern of `jQuery Ajax`.
@@ -102,7 +102,7 @@ $data = $action->do()->getMeaningData();
 var_dump($data);
 ```
 
-### Parallel Connection
+### Concurrent Connection
 
 You can directly use the `ConcurrentAction` class provided by the library.
 By passing multiple `Action` entities, you will be able to achieve parallel connection fastly, and get the processed results uniformly.
