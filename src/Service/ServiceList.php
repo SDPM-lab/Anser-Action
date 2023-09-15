@@ -4,7 +4,7 @@ namespace SDPMlab\Anser\Service;
 
 use SDPMlab\Anser\Service\ServiceSettings;
 use GuzzleHttp\HandlerStack;
-
+use SDPMlab\Anser\Exception\ActionException;
 class ServiceList
 {
 
@@ -22,6 +22,13 @@ class ServiceList
      */
     protected static $globalHandlerCallback = null;
     
+    /**
+     * ServiceList Update callback From Anser-Gateway 
+     *
+     * @var null|callable
+     */
+    protected static $serviceDataHandlerCallback = null;
+
     /**
      * Guzzle7 HTTP Client Instance
      *
@@ -55,6 +62,17 @@ class ServiceList
     public static function setGlobalHandlerStack(callable $handler)
     {
         static::$globalHandlerCallback = $handler;
+    }
+
+    /**
+     * Action will use this Handler to handle the Service Data.
+     *
+     * @param callable $handler
+     * @return void
+     */
+    public static function setServiceDataHandler(callable $handler)
+    {
+        static::$serviceDataHandlerCallback = $handler;
     }
 
     /**
@@ -94,25 +112,33 @@ class ServiceList
      */
     public static function getServiceData(string $serviceName): ?ServiceSettings
     {
-        if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
-            $parseUrl = parse_url($serviceName);
-            if(isset($parseUrl["port"])){
-                $port = (int)$parseUrl["port"];
-            }else{
-                $port = $parseUrl["scheme"] === "https" ? 443 : 80;
+        if(static::$serviceDataHandlerCallback === null){
+            if (filter_var($serviceName, FILTER_VALIDATE_URL) !== false) {
+                $parseUrl = parse_url($serviceName);
+                if(isset($parseUrl["port"])){
+                    $port = (int)$parseUrl["port"];
+                }else{
+                    $port = $parseUrl["scheme"] === "https" ? 443 : 80;
+                }
+                return new \SDPMlab\Anser\Service\ServiceSettings(
+                    $parseUrl["host"],
+                    $parseUrl["host"],
+                    $port,
+                    $parseUrl["scheme"] === "https"
+                );
             }
-            return new \SDPMlab\Anser\Service\ServiceSettings(
-                $parseUrl["host"],
-                $parseUrl["host"],
-                $port,
-                $parseUrl["scheme"] === "https"
-            );
-        }
-        
-        if (isset(static::$localServiceList[$serviceName])) {
-            return static::$localServiceList[$serviceName];
+            
+            if (isset(static::$localServiceList[$serviceName])) {
+                return static::$localServiceList[$serviceName];
+            } else {
+                return null;
+            }
         } else {
-            return null;
+            $callableResult = call_user_func(static::$serviceDataHandlerCallback);
+            if (!$callableResult instanceof ServiceSettings) {
+                throw ActionException::forServiceDataCallbackTypeError($serviceName);
+            }
+            return $callableResult; 
         }
     }
 
