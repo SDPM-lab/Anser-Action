@@ -134,7 +134,7 @@ class ServiceList
                 return null;
             }
         } else {
-            $callableResult = call_user_func(static::$serviceDataHandlerCallback);
+            $callableResult = call_user_func(static::$serviceDataHandlerCallback, $serviceName);
             if (!$callableResult instanceof ServiceSettings) {
                 throw ActionException::forServiceDataCallbackTypeError($serviceName);
             }
