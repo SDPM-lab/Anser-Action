@@ -62,6 +62,8 @@ $routes->group(
         //Rpc APIs
         $routes->get('doSingleAction','Rpc::doSingleAction');
         $routes->get('doConcurrentAction','Rpc::doConcurrentAction');
+        $routes->get('doNativeAction','Rpc::doNativeAction');
+        
     }
 );
 

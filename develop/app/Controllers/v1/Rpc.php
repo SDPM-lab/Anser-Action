@@ -45,7 +45,7 @@ class Rpc extends BaseController
     public function doConcurrentAction()
     {
         $action = (new Action(
-            "http://140.127.74.161:9601",
+            env('serviceAddress'),
             "GET",
             "/"
         ))
@@ -100,6 +100,25 @@ class Rpc extends BaseController
             "action1" => $action1,
         ])->send();
         $data = ($concurrent->getActionsMeaningData());
+        return $this->response->setStatusCode(200)->setJSON($data);
+    }
+
+    public function doNativeAction()
+    {
+        $action = (new Action(
+            "https://jsonplaceholder.typicode.com",
+            "GET",
+            "/todos/1"
+        ))->doneHandler(function(
+            ResponseInterface $response,
+            Action $runtimeAction
+        ){
+            $body = $response->getBody()->getContents();
+            $data = json_decode($body, true);
+            $runtimeAction->setMeaningData($data);
+        });
+        
+        $data = $action->do()->getMeaningData();
         return $this->response->setStatusCode(200)->setJSON($data);
     }
 }
