@@ -265,7 +265,7 @@ var_dump($data);
 ```
 
 ### HTTP JSON RPC 錯誤處理
-你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` 的處理邏輯。
+你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時的處理邏輯，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` 。
 
 ```php
 require './vendor/autoload.php';
