@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  anser_service:
+    image: webdevops/php-nginx-dev:8.0
+    platform: linux/x86_64
+    ports:
+        - 8080:80
+    working_dir: /app
+    environment: 
+        - WEB_DOCUMENT_ROOT=/app/public
+        - PHP_MEMORY_LIMIT=512M
+        - PHP_MAX_EXECUTION_TIME=30
+        - PHP_POST_MAX_SIZE=20M
+        - PHP_UPLOAD_MAX_FILESIZE=20M
+    volumes:
+        - './develop:/app'
+        - './src:/src'
