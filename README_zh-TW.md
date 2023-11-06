@@ -232,8 +232,11 @@ var_dump($taichungService->getAction2()->do()->getMeaningData());
 ### HTTP JSON RPC
 
 你可以在 `Action` 物件中，透過使用 `setRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 傳入，即可利用RPC進行 HTTP 連線。
+
 啟用 `setRpcQuery()` 方法後，`Action` 的 HTTP 呼叫動詞將會自動轉為 `POST`。 
+
 透過 doneHandler 的設定，你能夠設定連線成功時的執行邏輯，並透過 setMeaningData 將所需的資料暫存在 Action 實體中。
+
 在此你必須透過 `ServiceList` 提供的 `getRpcClient()` 進行RPC資料解包，搭配 `decode()` 將 `response Body` 傳入，最終將可使用 `getValue` 取得資料。 
 
 ```php
