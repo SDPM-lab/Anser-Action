@@ -3,13 +3,28 @@ namespace App\Controllers\V1;
 use App\Controllers\BaseController;
 use SDPMlab\Anser\Service\Action;
 use Psr\Http\Message\ResponseInterface;
-use CodeIgniter\HTTP\RequestTrait;
+use CodeIgniter\API\ResponseTrait;
 use SDPMlab\Anser\Exception\ActionException;
 use \SDPMlab\Anser\Service\ConcurrentAction;
 use SDPMlab\Anser\Service\ServiceList;
+
 class Rpc extends BaseController
 {
-    use RequestTrait;
+    use ResponseTrait;
+
+    public function rpcServer()
+    {
+        $data = $this->request->getBody();
+        $server = new \Datto\JsonRpc\Server(new \App\Controllers\V1\RpcApi());
+        $reply = $server->reply($data);
+        return $this->response->setStatusCode(200)->setJSON($reply);
+    }
+
+    public function errorRpcServer()
+    {
+        $reply = '{"jsonrpc": "2.0", "method"';
+        return $this->response->setStatusCode(200)->setJSON($reply);
+    }
 
     public function doSingleAction()
     {
@@ -106,9 +121,9 @@ class Rpc extends BaseController
     public function doNativeAction()
     {
         $action = (new Action(
-            "https://jsonplaceholder.typicode.com",
+            "http://localhost:8080",
             "GET",
-            "/todos/1"
+            "/api/v1/user"
         ))->doneHandler(function(
             ResponseInterface $response,
             Action $runtimeAction

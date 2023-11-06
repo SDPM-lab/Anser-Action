@@ -317,4 +317,31 @@ class ActionException extends AnserException
         }
         return $this->getRpcCode() == -32600;
     }
+
+    /**
+     * RPC 內部錯誤
+     *
+     * @return boolean
+     */
+    public function isRpcInternalError(): bool
+    {
+        if(is_null($this->response)){
+            return false;
+        }
+        return $this->getRpcCode() == -32603;
+    }
+
+    /**
+     * RPC Server端錯誤
+     *
+     * @return boolean
+     */
+    public function isRpcInternalServerError(): bool
+    {
+        if(is_null($this->response)){
+            return false;
+        }
+
+        return $this->getRpcCode() <= -32000 && $this->getRpcCode() >= -32099;
+    }
 }

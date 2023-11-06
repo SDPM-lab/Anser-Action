@@ -248,6 +248,13 @@ interface ActionInterface
     public function setRpcQuery(string $method = null, array $arguments = []): ActionInterface;
 
     /**
+     * 取得當前RPC請求json
+     *
+     * @return ?string
+     */
+    public function getRpcRequest(): ?string;
+
+    /**
      * 判斷Response是否為RPC Response，並解析是否有錯誤
      *
      * @param ResponseInterface $response

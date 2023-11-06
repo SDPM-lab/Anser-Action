@@ -516,8 +516,8 @@ class Action implements ActionInterface
         }
 
         // 如果rpc請求存在，則加入body
-        if (!is_null($this->rpcRequest)) {
-            $finallyOptions["body"] = $this->rpcRequest;
+        if (!is_null($this->getRpcRequest())) {
+            $finallyOptions["body"] = $this->getRpcRequest();
             $this->method = "POST";
         }
         
@@ -721,15 +721,20 @@ class Action implements ActionInterface
      * @param array $arguments
      * @return ActionInterface
      */
-    public function setRpcQuery(string $method = null, array $arguments = []): ActionInterface
+    public function setRpcQuery(string $method = null, array $arguments = [], $id = null): ActionInterface
     {
         $rpcClient = ServiceList::getRpcClient();
 
         // the rpc unique id
-        $id = sha1(
-            uniqid() .
-            substr(str_shuffle(str_repeat($x='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', ceil(10/strlen($x)))), 1, 10)
-        );
+        if (is_null($id)) {
+            $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+          );
+        }
 
         $rpcClient->query($id, $method, $arguments);
 
@@ -739,13 +744,23 @@ class Action implements ActionInterface
     }
 
     /**
+     * 取得當前RPC請求json
+     *
+     * @return ?string
+     */
+    public function getRpcRequest(): ?string
+    {
+        return $this->rpcRequest;
+    }
+
+    /**
      * 判斷Response是否為RPC Response，並解析是否有錯誤
      *
      * @param ResponseInterface $response
      */
     public function verifyResponse(ResponseInterface $response)
     {
-        if (!is_null($this->rpcRequest)) {
+        if (!is_null($this->getRpcRequest())) {
             $result = ServiceList::getRpcClient()->decode($response->getBody())[0];
             if($result instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
                 $this->setActionResponse($response,false);

@@ -63,7 +63,8 @@ $routes->group(
         $routes->get('doSingleAction','Rpc::doSingleAction');
         $routes->get('doConcurrentAction','Rpc::doConcurrentAction');
         $routes->get('doNativeAction','Rpc::doNativeAction');
-        
+        $routes->post('rpcServer','Rpc::rpcServer');
+        $routes->post('errorRpcServer','Rpc::errorRpcServer');
     }
 );
 
