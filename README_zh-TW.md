@@ -231,13 +231,13 @@ var_dump($taichungService->getAction2()->do()->getMeaningData());
 
 ### HTTP JSON RPC
 
-你可以在 `Action` 物件中，透過使用 `setRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 傳入，即可利用RPC進行 HTTP 連線。
+你可以在 `Action` 物件中，透過使用 `setRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 傳入，即可進行RPC連線。
 
 啟用 `setRpcQuery()` 方法後，`Action` 的 HTTP 呼叫動詞將會自動轉為 `POST`。 
 
-透過 doneHandler 的設定，你能夠設定連線成功時的執行邏輯，並透過 setMeaningData 將所需的資料暫存在 Action 實體中。
+透過 `doneHandler` 的設定，你能夠設定連線成功時的執行邏輯，並透過 `setMeaningData` 將所需的資料暫存在 `Action` 實體中。
 
-在此你必須透過 `ServiceList` 提供的 `getRpcClient()` 進行RPC資料解包，搭配 `decode()` 將 `response Body` 傳入，最終將可使用 `getValue` 取得資料。 
+在此你必須透過 `ServiceList` 提供的 `getRpcClient()` 進行RPC資料解析，搭配 `decode()` 方法將 `response Body` 傳入，最終使用 `getValue` 取得資料。 
 
 ```php
 require './vendor/autoload.php';
@@ -265,7 +265,7 @@ var_dump($data);
 ```
 
 ### HTTP JSON RPC 錯誤處理
-你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時，如 : Parse error、Invalid Request、Method not found、Invalid params、Internal error、Server error 的處理邏輯。
+你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` 的處理邏輯。
 
 ```php
 require './vendor/autoload.php';
