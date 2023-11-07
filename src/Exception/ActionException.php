@@ -189,44 +189,71 @@ class ActionException extends AnserException
     }
 
     /**
-     * 回傳RPC Response
+     * 回傳RPC Response 
+     * 可能發生於HTTP請求錯誤，但RPC回傳正確，以Response Type判斷
      *
-     * @return \Datto\JsonRpc\Responses\ErrorResponse
+     * @return \Datto\JsonRpc\Responses\ErrorResponse|\Datto\JsonRpc\Responses\ResultResponse
      */
-    public function getRpcResponse(): \Datto\JsonRpc\Responses\ErrorResponse
+    public function getRpcResponse(): \Datto\JsonRpc\Responses\ErrorResponse|\Datto\JsonRpc\Responses\ResultResponse
     {
         return \SDPMlab\Anser\Service\ServiceList::getRpcClient()->decode($this->response->getBody())[0];
     }
 
     /**
-     * 回傳RPC錯誤碼
+     * 回傳RPC Response id
      *
-     * @return integer
+     * @return string|null
      */
-    public function getRpcCode(): int
+    public function getRpcId(): ?string
     {
-        return $this->getRpcResponse()->getCode();
+        return $this->getRpcResponse()->getId();
     }
 
     /**
-     * 回傳RPC錯誤訊息
+     * 回傳RPC錯誤碼
+     * 當 Response Type 為 ErrorResponse 時，回傳 error code，如果非 ErrorResponse 則回傳null
      *
-     * @return string
+     * @return integer|null
      */
-    public function getRpcMsg(): string
+    public function getRpcCode(): ?int
     {
-        return $this->getRpcResponse()->getMessage();
+        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+            return $this->getRpcResponse()->getCode();
+        }
+        return null;
+    }
+       
+
+    /**
+     * 回傳RPC錯誤訊息
+     * 當 Response Type 為 ErrorResponse 時，回傳 error message，如果為 ResultResponse 則回傳由 Response 原始資料
+     *
+     * @return string|null
+     */
+    public function getRpcMsg(): ?string
+    {
+        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+            return $this->getRpcResponse()->getMessage();
+        }
+        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ResultResponse) {
+            return $this->getRpcResponse()->getValue();
+        }
+        return null;
     }
 
     /**
      * 回傳RPC Data
      *
-     * @return array|null
+     * @return array|null|string|int
      */
-    public function getRpcData(): ?array
+    public function getRpcData(): array|null|string|int
     {
-        return $this->getRpcResponse()->getData();
+        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+            return $this->getRpcResponse()->getData();
+        }
+        return null;
     }
+    
 
     /**
      * 是否為 Client Error (Client code 4XX)

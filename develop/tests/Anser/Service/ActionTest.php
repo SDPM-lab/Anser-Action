@@ -326,7 +326,7 @@ class ActionTest extends CIUnitTestCase
 
         $method = 'add';
         $param  = [1,2]; 
-        $id     = 1;
+        $id = "1";
 
         $rpcClient = ServiceList::getRpcClient();
         $testRpcRequest = $rpcClient->query($id, $method, $param)->encode();
@@ -346,7 +346,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = [1,2]; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -364,7 +364,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'failMethod';
         $param  = [1,2]; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -393,7 +393,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = []; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -453,7 +453,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = [1,2]; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -488,7 +488,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'implementationError';
         $param  = [1,2]; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -517,7 +517,7 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'InternalError';
         $param  = [1,2]; 
-        $id = 1;
+        $id = "1";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -540,5 +540,526 @@ class ActionTest extends CIUnitTestCase
         $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $response);
         $this->assertEquals($errorCode,-32603);
         $this->assertEquals($action->getMeaningData()["msg"],"Internal error");
+    }
+
+    public function testFailRpcHandler400ActionDo()
+    {
+        $method = 'error429RpcServer';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                $response = $e->getResponse();
+                $action = $e->getAction();
+                $errorCode = $e->getStatusCode();
+                $action->setMeaningData([
+                    "code" => $errorCode,
+                    "rpcCode" => $e->getRpcCode(),
+                    "rpcMsg" => $e->getRpcMsg(),
+                    "rpcData" => $e->getRpcData(),
+                    "rpcId"     => $e->getRpcId()
+                ]);   
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertNull($action->getMeaningData()["rpcCode"]);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Too Many Requests");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler500ActionDo()
+    {
+        $method = 'error500RpcServer';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                $response = $e->getResponse();
+                $action = $e->getAction();
+                $errorCode = $e->getStatusCode();
+                $action->setMeaningData([
+                    "code" => $errorCode,
+                    "rpcCode" => $e->getRpcCode(),
+                    "rpcMsg" => $e->getRpcMsg(),
+                    "rpcData" => $e->getRpcData(),
+                    "rpcId"     => $e->getRpcId()
+                ]);       
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertNull($action->getMeaningData()["rpcCode"]);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Internal Server Error");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testRpcConnectionError()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("errorService","POST","/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action->failHandler(function(ActionException $e){
+            if($e->isConnectError()){
+                $e->getAction()->setMeaningData("connectError");
+            }
+        })->setTimeout(1.0)->do();
+        $this->assertEquals($action->getMeaningData(),"connectError");
+
+        $action = new Action("errorService","POST","/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        try {
+            $action->setTimeout(1.0)->do();
+        } catch (\SDPMlab\Anser\Exception\ActionException $e) {
+            $this->assertInstanceOf(ActionException::class,$e);
+            $this->assertTrue($e->isConnectError());
+        }
+    }
+
+    public function testFailRpcHandler400WithMethodNotExistActionDo()
+    {
+        $method = 'a';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcMethodError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32601);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Method not found");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler500WithMethodNotExistActionDo()
+    {
+        $method = 'a';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcMethodError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }    
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32601);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Method not found");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler400WithParseErrorActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $closure = function () use ($action) {
+            $action->rpcRequest = '"{"jsonrpc":"2.0","method":"add","params":[1,}"';
+        };
+        $binding = $closure->bindTo($action , get_class($action ));
+        $binding();
+
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcParseError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32700);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Parse error");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertNull($action->getMeaningData()["rpcId"]);
+    }
+
+    public function testFailRpcHandler500WithParseErrorActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $closure = function () use ($action) {
+            $action->rpcRequest = '"{"jsonrpc":"2.0","method":"add","params":[1,}"';
+        };
+        $binding = $closure->bindTo($action , get_class($action ));
+        $binding();
+
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcParseError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32700);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Parse error");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertNull($action->getMeaningData()["rpcId"]);
+    }
+
+    public function testFailRpcHandler400WithInvalidParamsActionDo()
+    {
+        $method = 'add';
+        $param  = []; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcInvalidParams()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32602);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Invalid params");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler500WithInvalidParamsActionDo()
+    {
+        $method = 'add';
+        $param  = []; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcInvalidParams()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }    
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32602);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Invalid params");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler400WithInvalidRequestActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $closure = function () use ($action) {
+            $action->rpcRequest = '[1,2,3]';
+        };
+        $binding = $closure->bindTo($action , get_class($action ));
+        $binding();
+
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcInvalidRequest()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32600);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Invalid Request");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertNull($action->getMeaningData()["rpcId"]);
+    }
+
+    public function testFailRpcHandler500WithInvalidRequestActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $closure = function () use ($action) {
+            $action->rpcRequest = '[1,2,3]';
+        };
+        $binding = $closure->bindTo($action , get_class($action ));
+        $binding();
+
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcInvalidRequest()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32600);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Invalid Request");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertNull($action->getMeaningData()["rpcId"]);
+    }
+
+    public function testFailRpcHandler400WithInternalErrorActionDo()
+    {
+        $method = 'InternalError';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcInternalError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32603);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Internal error");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler500WithInternalErrorActionDo()
+    {
+        $method = 'InternalError';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcInternalError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }    
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32603);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Internal error");
+        $this->assertNull($action->getMeaningData()["rpcData"]);
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+
+    public function testFailRpcHandler400WithInternalServerErrorActionDo()
+    {
+        $method = 'implementationError';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error429RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isClientError()){
+                if ($e->isRpcInternalServerError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,429);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32099);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Server error");
+        $this->assertEquals($action->getMeaningData()["rpcData"],"1");
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
+    }
+    public function testFailRpcHandler500WithInternalServerErrorActionDo()
+    {
+        $method = 'implementationError';
+        $param  = [1,2]; 
+        $id = "1";
+
+        $action = new Action("http://localhost:8080","POST","/api/v1/error500RpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $errorCode = 0;
+        $action->failHandler(function(ActionException $e) use (&$errorCode){
+            if($e->isServerError()){
+                if ($e->isRpcInternalServerError()) {
+                    $response = $e->getResponse();
+                    $action = $e->getAction();
+                    $errorCode = $e->getStatusCode();
+                    
+                    $action->setMeaningData([
+                        "code" => $errorCode,
+                        "rpcCode" => $e->getRpcCode(),
+                        "rpcMsg" => $e->getRpcMsg(),
+                        "rpcData" => $e->getRpcData(),
+                        "rpcId"     => $e->getRpcId()
+                    ]);  
+                }    
+            }
+        });
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $this->assertEquals($errorCode,500);
+        $this->assertEquals($action->getMeaningData()["rpcCode"],-32099);
+        $this->assertEquals($action->getMeaningData()["rpcMsg"],"Server error");
+        $this->assertEquals($action->getMeaningData()["rpcData"],"1");
+        $this->assertEquals($action->getMeaningData()["rpcId"],"1");
     }
 }

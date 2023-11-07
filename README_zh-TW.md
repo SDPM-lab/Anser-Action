@@ -265,61 +265,123 @@ var_dump($data);
 ```
 
 ### HTTP JSON RPC 錯誤處理
-你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時的處理邏輯，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` 。
+你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時的處理邏輯，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` [參閱 JSON-RPC](https://www.jsonrpc.org/ "參閱 JSON-RPC")。
+
+你也可以使用 `Action` 的 HTTP連線錯誤處理搭配 `RPC` 錯誤處理。
 
 ```php
+<?php
 require './vendor/autoload.php';
-use SDPMlab\Anser\Service\Action;
-use Psr\Http\Message\ResponseInterface;
-use SDPMlab\Anser\Service\ServiceList;
 
-$id = 1;
+use \SDPMlab\Anser\Service\Action;
+use \Psr\Http\Message\ResponseInterface;
+use \SDPMlab\Anser\Exception\ActionException;
+
 $action = (new Action(
-    'http://myRpcServer.com',
-    "POST",
-    "/"
-))
-->setRpcQuery("/myRpcMethod", [], $id)
-->doneHandler(static function(
+    "https://error.endpoint",
+    "GET",
+    "/dfgdfg"
+))->doneHandler(function (
     ResponseInterface $response,
     Action $runtimeAction
 ) {
     $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
     $runtimeAction->setMeaningData($body);
-})
-->failHandler(function (
+})->failHandler(function (
     ActionException $e
-){
-    if ($e->isRpcMethodError()) {
+) {
+    if($e->isClientError()){
+        if ($e->isRpcMethodError()) {
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);
+        }else if($e->isRpcInvalidParams()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInvalidRequest()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcParseError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInternalError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInternalServerError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "client error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }
+    }else if ($e->isServerError()){
+        if ($e->isRpcMethodError()) {
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);
+        }else if($e->isRpcInvalidParams()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInvalidRequest()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcParseError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInternalError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }else if($e->isRpcInternalServerError()){
+            $e->getAction()->setMeaningData([
+                "code" => $e->getStatusCode(),
+                "msg" => "server error",
+                "rpcCode" => $e->getRpcCode(),
+                "rpcMsg" => $e->getRpcMsg(),
+            ]);    
+        }
+    }else if($e->isConnectError()){
         $e->getAction()->setMeaningData([
-            "code" => 404,
-            "msg" => $e->getRpcMsg()
+            "msg" => $e->getMessage()
         ]);
-    }else if($e->isRpcInvalidParams()){
-        $e->getAction()->setMeaningData([
-            "code" => 500,
-            "msg" => $e->getRpcMsg()
-        ]);    
-    }else if($e->isRpcInvalidRequest()){
-        $e->getAction()->setMeaningData([
-            "code" => 400,
-            "msg" => $e->getRpcMsg()
-        ]);    
-    }else if($e->isRpcParseError()){
-        $e->getAction()->setMeaningData([
-            "code" => 500,
-            "msg" => $e->getRpcMsg()
-        ]);    
-    }else if($e->isRpcInternalError()){
-        $e->getAction()->setMeaningData([
-            "code" => 500,
-            "msg" => $e->getRpcMsg()
-        ]);    
-    }else if($e->isRpcInternalServerError()){
-        $e->getAction()->setMeaningData([
-            "code" => 500,
-            "msg" => $e->getRpcMsg()
-        ]);    
     }
 });
 

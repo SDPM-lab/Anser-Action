@@ -10,18 +10,20 @@ class RpcApi implements Evaluator
 {
     public function evaluate($method, $arguments)
     {
-        if ($method === 'add') {
-            return self::add($arguments);
+        switch ($method) {
+            case "add":
+                return self::add($arguments);
+            case "implementationError":   
+                return self::implementationError($arguments);
+            case "InternalError":
+                return self::InternalError();
+            case "error429RpcServer":
+                return self::error429RpcServer();
+            case "error500RpcServer":
+                return self::error500RpcServer();
+            default:
+                throw new MethodException();
         }
-        if ($method === 'implementationError') {
-            return self::implementationError($arguments);
-        }
-        if ($method === 'InternalError') {
-            return self::InternalError();
-        }
-        
-
-        throw new MethodException();
     }
 
     private static function add($arguments)
@@ -42,6 +44,16 @@ class RpcApi implements Evaluator
     private static function InternalError()
     {
         throw new \App\Controllers\V1\InternalErrorException();
+    }
+
+    private static function error429RpcServer()
+    {
+        return "Too Many Requests";
+    }
+
+    private static function error500RpcServer()
+    {
+        return "Internal Server Error";
     }
 }
 

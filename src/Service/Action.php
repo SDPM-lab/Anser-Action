@@ -721,7 +721,7 @@ class Action implements ActionInterface
      * @param array $arguments
      * @return ActionInterface
      */
-    public function setRpcQuery(string $method = null, array $arguments = [], $id = null): ActionInterface
+    public function setRpcQuery(string $method = null, array $arguments = [], ?string $id = null): ActionInterface
     {
         $rpcClient = ServiceList::getRpcClient();
 

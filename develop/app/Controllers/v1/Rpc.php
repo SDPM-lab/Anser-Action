@@ -20,10 +20,20 @@ class Rpc extends BaseController
         return $this->response->setStatusCode(200)->setJSON($reply);
     }
 
-    public function errorRpcServer()
+    public function error429RpcServer()
     {
-        $reply = '{"jsonrpc": "2.0", "method"';
-        return $this->response->setStatusCode(200)->setJSON($reply);
+        $data = $this->request->getBody();
+        $server = new \Datto\JsonRpc\Server(new \App\Controllers\V1\RpcApi());
+        $reply = $server->reply($data);
+        return $this->response->setStatusCode(429)->setJSON($reply);
+    }
+
+    public function error500RpcServer()
+    {
+        $data = $this->request->getBody();
+        $server = new \Datto\JsonRpc\Server(new \App\Controllers\V1\RpcApi());
+        $reply = $server->reply($data);
+        return $this->response->setStatusCode(500)->setJSON($reply);
     }
 
     public function doSingleAction()
@@ -48,7 +58,11 @@ class Rpc extends BaseController
             if ($e->isRpcMethodError()) {
                 $e->getAction()->setMeaningData([
                     "code" => 400,
-                    "msg" => $e->getRpcCode()
+                    "rpccode" => $e->getRpcCode(),
+                    "rpcmsg" => $e->getRpcMsg(),
+                    "rpcdata" => $e->getRpcData(),
+                    "rpcresponse" => $e->getResponse(),
+                    "rpcid"     => $e->getRpcId()
                 ]);
             }
         });
