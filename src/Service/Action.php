@@ -7,6 +7,7 @@ use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Promise\Utils;
 use Psr\Http\Message\ResponseInterface;
 use SDPMlab\Anser\Exception\ActionException;
+use SDPMlab\Anser\Exception\AnserException;
 use SDPMlab\Anser\Service\ActionFilter;
 use SDPMlab\Anser\Service\ActionInterface;
 use SDPMlab\Anser\Service\RequestSettings;
@@ -136,6 +137,13 @@ class Action implements ActionInterface
      */
     protected $client;
 
+    /**
+     * JSONRPC 請求
+     *
+     * @var string|null
+     */
+    protected $rpcRequest = null;
+
     public function __construct(string $serviceName, string $method, string $path)
     {
         $this->serviceName = $serviceName;
@@ -201,7 +209,8 @@ class Action implements ActionInterface
                 try {
                     //如果 numOfAction 大於 1 就代表是 retry
                     $response = $this->sendRequest($this->numOfAction > 1);
-                    $this->setActionResponse($response, true);
+                    // 將原本的setActionResponse放至verifyResponse呼叫
+                    $this->verifyResponse($response);
                     break;
                 } catch (\Exception $th) {
                     if ($this->numOfAction > $this->retry) {
@@ -212,6 +221,8 @@ class Action implements ActionInterface
             }
         } catch (\GuzzleHttp\Exception\TransferException $th){
             $this->processFailHandler($th);
+        } catch (ActionException $th) {
+            $this->processFailHandlerForRpc($th);
         }
 
         //執行後濾器
@@ -244,7 +255,12 @@ class Action implements ActionInterface
         )->then(
             function (ResponseInterface $res) use (&$runtimeAction) {
                 $runtimeAction->addNumOfActionDo();
-                $runtimeAction->setActionResponse($res, true);
+                try {
+                    // 將原本的setActionResponse放至verifyResponse呼叫
+                    $runtimeAction->verifyResponse($res);
+                } catch (ActionException $th) {
+                    return $runtimeAction->processFailHandlerForRpc($th);
+                }
                 //執行後濾器
                 $runtimeAction->useFilters(false);
                 //判斷是否需要過濾意義資料
@@ -365,6 +381,17 @@ class Action implements ActionInterface
                 throw $exception;
             }    
         }
+    }
+
+    public function processFailHandlerForRpc(ActionException $th,?string $alias = null)
+    {
+        $this->setActionResponse($this->response, false);
+        $exception = ActionException::forRpcResponseError($this->serviceName, $this->getRequestSetting(), $this, $alias, $th->getMessage());
+        if (is_callable($this->failHandler)) {
+            call_user_func($this->failHandler, $exception);
+        } else {
+            throw $exception;
+        }    
     }
 
     /**
@@ -488,6 +515,12 @@ class Action implements ActionInterface
             $finallyOptions["delay"] = ($this->retryDelay * 1000);
         }
 
+        // 如果rpc請求存在，則加入body
+        if (!is_null($this->getRpcRequest())) {
+            $finallyOptions["body"] = $this->getRpcRequest();
+            $this->method = "POST";
+        }
+        
         return $finallyOptions;
     }
 
@@ -679,5 +712,62 @@ class Action implements ActionInterface
         } else {
             return null;
         }
+    }
+
+    /**
+     * 設定JSON RPC 呼叫參數
+     *
+     * @param string|null $method
+     * @param array $arguments
+     * @return ActionInterface
+     */
+    public function setRpcQuery(string $method = null, array $arguments = [], ?string $id = null): ActionInterface
+    {
+        $rpcClient = ServiceList::getRpcClient();
+
+        // the rpc unique id
+        if (is_null($id)) {
+            $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+          );
+        }
+
+        $rpcClient->query($id, $method, $arguments);
+
+        $this->rpcRequest = $rpcClient->encode();
+
+        return $this;
+    }
+
+    /**
+     * 取得當前RPC請求json
+     *
+     * @return ?string
+     */
+    public function getRpcRequest(): ?string
+    {
+        return $this->rpcRequest;
+    }
+
+    /**
+     * 判斷Response是否為RPC Response，並解析是否有錯誤
+     *
+     * @param ResponseInterface $response
+     */
+    public function verifyResponse(ResponseInterface $response)
+    {
+        if (!is_null($this->getRpcRequest())) {
+            $result = ServiceList::getRpcClient()->decode($response->getBody())[0];
+            if($result instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+                $this->setActionResponse($response,false);
+                throw ActionException::forRpcResponseErrorType($result->getMessage(), $result->getCode());
+            }
+        }
+        $this->setActionResponse($response,true);
+        return ;
     }
 }

@@ -238,4 +238,27 @@ interface ActionInterface
      */
     public function getOption(string $optionName);
 
+    /**
+     * 設定JSON RPC 呼叫參數
+     *
+     * @param string|null $method
+     * @param array $arguments
+     * @return ActionInterface
+     */
+    public function setRpcQuery(string $method = null, array $arguments = []): ActionInterface;
+
+    /**
+     * 取得當前RPC請求json
+     *
+     * @return ?string
+     */
+    public function getRpcRequest(): ?string;
+
+    /**
+     * 判斷Response是否為RPC Response，並解析是否有錯誤
+     *
+     * @param ResponseInterface $response
+     */
+    public function verifyResponse(ResponseInterface $response);
+
 }

@@ -22,7 +22,8 @@
     "require": {
         "php" : "^7.4||^8.0",
         "psr/http-message": "^1.0",
-	    "guzzlehttp/guzzle": "^7.0"
+	    "guzzlehttp/guzzle": "^7.0",
+        "datto/json-rpc": "^6.1"
     },
     "autoload": {
 		"psr-4": {

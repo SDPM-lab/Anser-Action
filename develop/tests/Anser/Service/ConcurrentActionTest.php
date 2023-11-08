@@ -171,7 +171,232 @@ class ConcurrentActionTest extends CIUnitTestCase
             $this->assertEquals($numOfDoAction, 1);
             $this->assertEquals($errorAction->isSuccess(), false);
         }
-
     }
 
+    public function testRpcActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id     = 1;
+
+        $assertData = [
+            "rpc1" => 3,
+            "rpc2" => 3
+        ];
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action->doneHandler(static function(
+            ResponseInterface $response,
+            Action $runtimeAction
+        ) {
+            $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
+            $runtimeAction->setMeaningData($body);
+        });
+
+        $action2 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action2->setRpcQuery($method, $param,$id); 
+        $action2->doneHandler(static function(
+            ResponseInterface $response,
+            Action $runtimeAction
+        ) {
+            $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
+            $runtimeAction->setMeaningData($body);
+        });
+
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc2" => $action2,
+        ]);
+
+        $this->concurrent->send();
+        $data = $this->concurrent->getActionsMeaningData();
+        $this->assertEquals($data, $assertData);
+    }
+
+    public function testRpcMethodNotFoundException()
+    {
+        $method = 'notExistMethod';
+        $param  = [1,2]; 
+        $id     = 1;
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action1->setRpcQuery($method, $param,$id); 
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32601);
+            $this->assertEquals($th->getRpcMsg(),"Method not found");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
+
+    public function testRpcInvalidParamsException()
+    {
+        $method = 'add';
+        $param  = []; 
+        $id     = 1;
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action1->setRpcQuery($method, $param,$id); 
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32602);
+            $this->assertEquals($th->getRpcMsg(),"Invalid params");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
+
+    public function testRpcInvalidRequestException()
+    {
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $closure = function () use ($action) {
+            $action->rpcRequest = '[1,2,3]';
+        };
+        $binding = $closure->bindTo($action , get_class($action));
+        $binding();
+
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $closure = function () use ($action1) {
+            $action1->rpcRequest = '[1,2,3]';
+        };
+        $binding = $closure->bindTo($action1 , get_class($action1));
+        $binding();
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32600);
+            $this->assertEquals($th->getRpcMsg(),"Invalid Request");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
+
+    public function testRpcParseErrorException()
+    {
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $closure = function () use ($action) {
+            $action->rpcRequest = '"{"jsonrpc":"2.0","method":"add","params":[1,}"';
+        };
+        $binding = $closure->bindTo($action , get_class($action));
+        $binding();
+
+
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $closure = function () use ($action1) {
+            $action1->rpcRequest = '"{"jsonrpc":"2.0","method":"add","params":[1,}"';
+        };
+        $binding = $closure->bindTo($action , get_class($action1));
+        $binding();
+
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32700);
+            $this->assertEquals($th->getRpcMsg(),"Parse error");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
+
+    public function testRpcServerErrorException()
+    {
+        $method = 'implementationError';
+        $param  = [1,2]; 
+        $id     = 1;
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action1->setRpcQuery($method, $param,$id); 
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32099);
+            $this->assertEquals($th->getRpcMsg(),"Server error");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
+
+    public function testRpcInternalErrorException()
+    {
+        $method = 'InternalError';
+        $param  = [1,2]; 
+        $id     = 1;
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setRpcQuery($method, $param,$id); 
+        $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action1->setRpcQuery($method, $param,$id); 
+    
+        $this->concurrent->setActions([
+            "rpc1" => $action,
+            "rpc12" => $action1,
+        ]);
+        try {
+            $this->concurrent->send();
+        } catch (\SDPMlab\Anser\Exception\ActionException $th) {
+            $this->assertNotNull($th->getResponse());
+            $this->assertNotNull($th->getRpcResponse());
+            $this->assertInstanceOf(ResponseInterface::class, $th->getResponse());
+            $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $th->getRpcResponse());
+            $this->assertEquals($th->getRpcCode(), -32603);
+            $this->assertEquals($th->getRpcMsg(),"Internal error");
+            $errorAction = $th->getAction();
+            $this->assertEquals($errorAction->isSuccess(), false);
+        }
+    }
 }

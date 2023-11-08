@@ -58,6 +58,14 @@ $routes->group(
         //Fail APIs
         $routes->get('fail','Fail::awayls429');
         $routes->get('fail/(:num)','Fail::awayls500/$1');
+
+        //Rpc APIs
+        $routes->get('doSingleAction','Rpc::doSingleAction');
+        $routes->get('doConcurrentAction','Rpc::doConcurrentAction');
+        $routes->get('doNativeAction','Rpc::doNativeAction');
+        $routes->post('rpcServer','Rpc::rpcServer');
+        $routes->post('error429RpcServer','Rpc::error429RpcServer');
+        $routes->post('error500RpcServer','Rpc::error500RpcServer');
     }
 );
 

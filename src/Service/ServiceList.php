@@ -5,6 +5,7 @@ namespace SDPMlab\Anser\Service;
 use SDPMlab\Anser\Service\ServiceSettings;
 use GuzzleHttp\HandlerStack;
 use SDPMlab\Anser\Exception\ActionException;
+
 class ServiceList
 {
 
@@ -35,6 +36,13 @@ class ServiceList
      * @var \GuzzleHttp\Client
      */
     protected static $client;
+
+    /**
+     * Datto JsonRpc Client Instance
+     *
+     * @var \Datto\JsonRpc\Client
+     */
+    protected static $rpcClient;
 
     /**
      * Set local service list
@@ -181,5 +189,20 @@ class ServiceList
             }
         }
         return static::$client;
+    }
+
+    /**
+     * Get Datto JSONRPC Client
+     *
+     * @return \Datto\JsonRpc\Client
+     */
+    public static function getRpcClient(): \Datto\JsonRpc\Client
+    {
+        if(!static::$rpcClient instanceof \Datto\JsonRpc\Client){
+            if(static::$rpcClient === null){
+                static::$rpcClient = new \Datto\JsonRpc\Client();
+            }
+        }
+        return static::$rpcClient;
     }
 }
