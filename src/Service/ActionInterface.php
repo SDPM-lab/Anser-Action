@@ -243,9 +243,10 @@ interface ActionInterface
      *
      * @param string|null $method
      * @param array $arguments
+     * @param string|null $id
      * @return ActionInterface
      */
-    public function setRpcQuery(string $method = null, array $arguments = []): ActionInterface;
+    public function setRpcQuery(string $method = null, array $arguments = [], ?string $id = null): ActionInterface;
 
     /**
      * 取得當前RPC請求json

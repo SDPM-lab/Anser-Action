@@ -8,6 +8,8 @@ use SDPMlab\Anser\Exception\AnserException;
 use SDPMlab\Anser\Service\ActionInterface;
 use SDPMlab\Anser\Service\RequestSettings;
 
+use function PHPUnit\Framework\isNull;
+
 class ActionException extends AnserException
 {
 
@@ -40,18 +42,34 @@ class ActionException extends AnserException
     protected $isConnectError = false;
 
     /**
+     * 是否是RPC錯誤
+     *
+     * @var boolean
+     */
+    protected $isRpcError = false;
+
+    /**
+     * RPC Response
+     *
+     * @var array
+     */
+    protected $rpcResponses;
+
+    /**
      * 初始化　ActionException
      *
      * @param string $message 錯誤訊息
      * @param ResponseInterface|null $response Psr-7 response 物件（如果有）
      */
-    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null, $isConnectError = false)
+    public function __construct(string $message, ?ResponseInterface $response = null, ?RequestInterface $request = null, ?ActionInterface $action = null, $isConnectError = false ,$isRpcError = false, ?array $rpcResponses = null)
     {
         parent::__construct($message);
         $this->response = $response;
         $this->request = $request;
         $this->action = $action;
         $this->isConnectError = $isConnectError;
+        $this->isRpcError = $isRpcError;
+        $this->rpcResponses = $rpcResponses;
     }
 
     public static function forServiceActionFailError(
@@ -102,9 +120,9 @@ class ActionException extends AnserException
         RequestSettings $requestSettings,
         ActionInterface $action,
         ?string $alias = null,
-        $rpcMsg
+        $rpcResponses
     ): ActionException {
-        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生錯誤。JSON-RPC {$rpcMsg}";
+        $msg = "Action {$serviceName} 在地址 {$requestSettings->url} 以 {$requestSettings->method} 方法呼叫 {$requestSettings->path} 時發生錯誤。JSON-RPC 響應錯誤";
         if ($alias) {
             $msg = "{$alias}-" . $msg;
         }
@@ -114,7 +132,9 @@ class ActionException extends AnserException
             $action->getResponse(),
             null,
             $action,
-            true
+            false,
+            true,
+            $rpcResponses
         );
     }
 
@@ -143,9 +163,20 @@ class ActionException extends AnserException
         return new self("Action {$serviceName} 定義的回呼函數回傳型別錯誤，請檢查回傳型別是否為 \SDPMlab\Anser\Service\ServiceSettings 或 null。");
     }
 
-    public static function forRpcResponseErrorType(string $message,int $code): ActionException
+    public static function forSetBatchRpcQueryBtDataNotExist(string $serviceName): ActionException
     {
-        return new self("code : {$code} , message : {$message}");
+        return new self("Action {$serviceName} 已使用 setBatchRpcQuery() ，但未傳入任何資料於陣列中。");
+    }
+
+    public static function forRpcInvalidResponse(string $serviceName): ActionException
+    {
+        return new self("Action {$serviceName} RPC Response 格式錯誤。");
+    }
+
+
+    public static function forRpcResponseErrorType(string $serviceName): ActionException
+    {
+        return new self("Action {$serviceName} RPC Response 包含錯誤 Response。");
     }
 
     /**
@@ -189,71 +220,82 @@ class ActionException extends AnserException
     }
 
     /**
-     * 回傳RPC Response 
-     * 可能發生於HTTP請求錯誤，但RPC回傳正確，以Response Type判斷
+     * 回傳解構後RPC Response 
+     * 內部包裹success與error case的RPC Response物件
      *
-     * @return \Datto\JsonRpc\Responses\ErrorResponse|\Datto\JsonRpc\Responses\ResultResponse
+     * @return array
      */
-    public function getRpcResponse(): \Datto\JsonRpc\Responses\ErrorResponse|\Datto\JsonRpc\Responses\ResultResponse
+    public function getRpcResponse(): array
     {
-        return \SDPMlab\Anser\Service\ServiceList::getRpcClient()->decode($this->response->getBody())[0];
+        return $this->rpcResponses;
+    }
+
+    public function getSuccessRpc()
+    {
+        return $this->getRpcResponse()["success"] ?? null;
+    }
+
+    public function getErrorRpc()
+    {
+        return $this->getRpcResponse()["error"] ?? null;
     }
 
     /**
-     * 回傳RPC Response id
-     *
-     * @return string|null
+     * 回傳解構後RPC Response 
+     * 內部為RPC Response 實體
+     * @param string|null $responseBody
+     * @return array|null
      */
-    public function getRpcId(): ?string
+    public function getRpcByResponse(): ?array
     {
-        return $this->getRpcResponse()->getId();
-    }
-
-    /**
-     * 回傳RPC錯誤碼
-     * 當 Response Type 為 ErrorResponse 時，回傳 error code，如果非 ErrorResponse 則回傳null
-     *
-     * @return integer|null
-     */
-    public function getRpcCode(): ?int
-    {
-        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
-            return $this->getRpcResponse()->getCode();
-        }
-        return null;
-    }
-       
-
-    /**
-     * 回傳RPC錯誤訊息
-     * 當 Response Type 為 ErrorResponse 時，回傳 error message，如果為 ResultResponse 則回傳由 Response 原始資料
-     *
-     * @return string|null
-     */
-    public function getRpcMsg(): ?string
-    {
-        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
-            return $this->getRpcResponse()->getMessage();
-        }
-        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ResultResponse) {
-            return $this->getRpcResponse()->getValue();
+        if (!is_null($this->getResponse())) {
+            return \SDPMlab\Anser\Service\ServiceList::getRpcClient()->decode($this->getResponse()->getBody());
         }
         return null;
     }
 
     /**
-     * 回傳RPC Data
-     *
-     * @return array|null|string|int
+     * 回傳解構後RPC Response 
+     * 內部success RPC Response
+     * @param string|null $responseBody
+     * @return array|null
      */
-    public function getRpcData(): array|null|string|int
+    public function getSuccessRpcByResponse(): ?array
     {
-        if ($this->getRpcResponse() instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
-            return $this->getRpcResponse()->getData();
+        if (!is_null(!is_null($this->getResponse()))) {
+            $rpcResponses = [];
+            $rpcNativeResponses = $this->getRpcByResponse();
+            foreach ($rpcNativeResponses as $rpcResponse) {
+                if ($rpcResponse instanceof \Datto\JsonRpc\Responses\ResultResponse) {
+                    $rpcResponses[] = $rpcResponse;
+                }
+            }
+            return $rpcResponses;
         }
         return null;
     }
-    
+
+    /**
+     * 回傳解構後RPC Response 
+     * 內部error RPC Response
+     * @param string|null $responseBody
+     * @return array|null
+     */
+    public function getErrorRpcByResponse(): ?array
+    {
+        if (!is_null(!is_null($this->getResponse()))) {
+            $rpcResponses = [];
+            $rpcNativeResponses = $this->getRpcByResponse();
+            foreach ($rpcNativeResponses as $rpcResponse) {
+                if ($rpcResponse instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+                    $rpcResponses[] = $rpcResponse;
+                }
+            }
+            return $rpcResponses;
+        }
+        return null;
+    }
+
 
     /**
      * 是否為 Client Error (Client code 4XX)
@@ -293,82 +335,8 @@ class ActionException extends AnserException
         return $this->isConnectError;
     }
 
-    /**
-     * RPC 呼叫路徑錯誤
-     *
-     * @return boolean
-     */
-    public function isRpcMethodError(): bool
+    public function isRpcError(): bool
     {
-        if(is_null($this->response)){
-            return false;
-        }
-        return $this->getRpcCode() == -32601;
-    }
-
-    /**
-     * RPC 解析錯誤
-     *
-     * @return boolean
-     */
-    public function isRpcParseError(): bool
-    {
-        if(is_null($this->response)){
-            return false;
-        }
-        return $this->getRpcCode() == -32700;
-    }
-
-    /**
-     * RPC 無效參數
-     *
-     * @return boolean
-     */
-    public function isRpcInvalidParams(): bool
-    {
-        if(is_null($this->response)){
-            return false;
-        }
-        return $this->getRpcCode() == -32602;
-    }
-
-    /**
-     * RPC 無效的請求
-     *
-     * @return boolean
-     */
-    public function isRpcInvalidRequest(): bool
-    {
-        if(is_null($this->response)){
-            return false;
-        }
-        return $this->getRpcCode() == -32600;
-    }
-
-    /**
-     * RPC 內部錯誤
-     *
-     * @return boolean
-     */
-    public function isRpcInternalError(): bool
-    {
-        if(is_null($this->response)){
-            return false;
-        }
-        return $this->getRpcCode() == -32603;
-    }
-
-    /**
-     * RPC Server端錯誤
-     *
-     * @return boolean
-     */
-    public function isRpcInternalServerError(): bool
-    {
-        if(is_null($this->response)){
-            return false;
-        }
-
-        return $this->getRpcCode() <= -32000 && $this->getRpcCode() >= -32099;
+        return $this->isRpcError;
     }
 }
