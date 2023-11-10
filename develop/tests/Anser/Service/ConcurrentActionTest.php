@@ -177,23 +177,22 @@ class ConcurrentActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = [1,2]; 
-        $id     = 1;
+        $id     = "1";
 
         $assertData = [
-            "rpc1" => [3,"1"],
-            "rpc2" => [3,"1"]
+            "rpc1" => [ "{$id}" => 3],
+            "rpc2" => [ "{$id}" => 3]
         ];
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setTimeout(3);
         $action->setRpcQuery($method, $param,$id); 
         $action->doneHandler(static function(
             ResponseInterface $response,
             Action $runtimeAction
         ) {
-            $idArr = $runtimeAction->getRpcId();
             $resultArr = $runtimeAction->getRpcResult(); 
-            $res = array_merge($resultArr, $idArr);
-            $runtimeAction->setMeaningData($res);
+            $runtimeAction->setMeaningData($resultArr);
         });
 
         $action2 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
@@ -202,10 +201,8 @@ class ConcurrentActionTest extends CIUnitTestCase
             ResponseInterface $response,
             Action $runtimeAction
         ) {
-            $idArr = $runtimeAction->getRpcId();
             $resultArr = $runtimeAction->getRpcResult(); 
-            $res = array_merge($resultArr, $idArr);
-            $runtimeAction->setMeaningData($res);
+            $runtimeAction->setMeaningData($resultArr);
         });
 
         $this->concurrent->setActions([
@@ -222,7 +219,7 @@ class ConcurrentActionTest extends CIUnitTestCase
     {
         $method = 'notExistMethod';
         $param  = [1,2]; 
-        $id     = 1;
+        $id     = "id";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setRpcQuery($method, $param,$id); 
@@ -233,7 +230,7 @@ class ConcurrentActionTest extends CIUnitTestCase
         $meaningDataHandler = function(\SDPMlab\Anser\Exception\ActionException $e){
             if($e->isRpcError()){
                 $errRpc = $e->getErrorRpc();
-                $errorMsg = $errRpc[0]->getMessage();
+                $errorMsg = $errRpc["id"]->getMessage();
                 $e->getAction()->setMeaningData([
                     "res" => $e->getRpcResponse(),
                     "msg" => $errorMsg
@@ -257,8 +254,8 @@ class ConcurrentActionTest extends CIUnitTestCase
         $this->assertArrayNotHasKey("success",$action->getMeaningData()["res"]);
         $this->assertEquals($action->getMeaningData()["msg"],"Method not found");
         $this->assertEquals($action1->getMeaningData()["msg"],"Method not found");
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][0]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"]["id"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"]["id"]);
     }
 
     // undo
@@ -266,43 +263,46 @@ class ConcurrentActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = [1,2]; 
-        $id     = 1;
+        $id1     = "1";
+        $id2     = "2";
 
         $assertData = [
-            "rpc1" => [3,3,"1","1"],
-            "rpc2" => [3,3,"1","1"]
+            "rpc1" => [
+                "{$id1}" => 3,
+                "{$id2}" => 3,
+            ],
+            "rpc2" => [
+                "{$id1}" => 3,
+                "{$id2}" => 3,
+            ]
         ];
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
+            [$method, $param,$id1],
+            [$method, $param,$id2],
         ]); 
         $action->setTimeout(7);
         $action->doneHandler(static function(
             ResponseInterface $response,
             Action $runtimeAction
         ) {
-            $idArr = $runtimeAction->getRpcId();
             $resultArr = $runtimeAction->getRpcResult(); 
-            $res = array_merge($resultArr, $idArr);
-            $runtimeAction->setMeaningData($res);
+            $runtimeAction->setMeaningData($resultArr);
         });
 
         $action2 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action2->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
+            [$method, $param,$id1],
+            [$method, $param,$id2],
         ]); 
         $action2->setTimeout(7);
         $action2->doneHandler(static function(
             ResponseInterface $response,
             Action $runtimeAction
         ) {
-            $idArr = $runtimeAction->getRpcId();
             $resultArr = $runtimeAction->getRpcResult(); 
-            $res = array_merge($resultArr, $idArr);
-            $runtimeAction->setMeaningData($res);
+            $runtimeAction->setMeaningData($resultArr);
         });
 
         $this->concurrent->setActions([
@@ -319,27 +319,31 @@ class ConcurrentActionTest extends CIUnitTestCase
     {
         $method = 'notExistMethod';
         $param  = [1,2]; 
-        $id     = 1;
+        $id1     = "1";
+        $id2     = "2";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
+            [$method, $param,$id1],
+            [$method, $param,$id2],
         ]); 
         $action->setTimeout(5);
         $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action1->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
+            [$method, $param,$id1],
+            [$method, $param,$id2],
         ]); 
         $action1->setTimeout(5);
         $meaningDataHandler = function(\SDPMlab\Anser\Exception\ActionException $e){
             if($e->isRpcError()){
                 $errRpc = $e->getErrorRpc();
-                $errorMsg = $errRpc[0]->getMessage();
+                @list($id1,$id2) = array_keys($errRpc);
                 $e->getAction()->setMeaningData([
                     "res" => $e->getRpcResponse(),
-                    "msg" => $errorMsg
+                    "msg" => [
+                        "rpc1Msg" => $errRpc[$id1]->getMessage(),
+                        "rpc2Msg" => $errRpc[$id2]->getMessage(),
+                    ]
                 ]);
             }
         };
@@ -358,12 +362,12 @@ class ConcurrentActionTest extends CIUnitTestCase
         $this->assertNotNull($action1->getMeaningData()["res"]["error"]);
         $this->assertArrayNotHasKey("success",$action1->getMeaningData()["res"]);
         $this->assertArrayNotHasKey("success",$action->getMeaningData()["res"]);
-        $this->assertEquals($action->getMeaningData()["msg"],"Method not found");
-        $this->assertEquals($action1->getMeaningData()["msg"],"Method not found");
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][1]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][1]);
+        $this->assertEquals($action->getMeaningData()["msg"]["rpc1Msg"],"Method not found");
+        $this->assertEquals($action1->getMeaningData()["msg"]["rpc2Msg"],"Method not found");
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][$id1]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][$id2]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][$id1]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][$id2]);
     }
 
     public function testBatchRpcSuccessAndErrorException()
@@ -371,13 +375,13 @@ class ConcurrentActionTest extends CIUnitTestCase
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
             ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
+            ["add", [1,2],"2"],
         ]); 
         $action->setTimeout(5);
         $action1 = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action1->setBatchRpcQuery([
             ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
+            ["add", [1,2],"2"],
         ]); 
         $action1->setTimeout(5);
         $meaningDataHandler = function(\SDPMlab\Anser\Exception\ActionException $e){
@@ -410,25 +414,27 @@ class ConcurrentActionTest extends CIUnitTestCase
         $this->assertNotNull($action1->getMeaningData()["res"]["error"]);
         $this->assertNotNull($action->getMeaningData()["res"]["success"]);
         $this->assertNotNull($action1->getMeaningData()["res"]["success"]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $action->getMeaningData()["res"]["success"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $action1->getMeaningData()["res"]["success"][0]);
-        $this->assertEquals($action->getMeaningData()["err"][0]->getMessage(),"Method not found");
-        $this->assertEquals($action1->getMeaningData()["err"][0]->getMessage(),"Method not found");
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action->getMeaningData()["res"]["error"]["1"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $action->getMeaningData()["res"]["success"]["2"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class, $action1->getMeaningData()["res"]["error"]["1"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $action1->getMeaningData()["res"]["success"]["2"]);
+        $this->assertEquals($action->getMeaningData()["err"]["1"]->getMessage(),"Method not found");
+        $this->assertEquals($action1->getMeaningData()["err"]["1"]->getMessage(),"Method not found");
     }
 
     public function testFailHandlerBatchRpcQueryDoActionWith4XXError()
     {
         $action = new Action("http://localhost:8080", "POST", "/api/v1/error429RpcServer");
+        $action->setTimeout(3);
         $action->setBatchRpcQuery([
-            ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
+            ["failMethod", [1,2],"err"],
+            ["add", [1,2],"suc"],
         ]); 
         $action1 = new Action("http://localhost:8080", "POST", "/api/v1/error429RpcServer");
+        $action1->setTimeout(3);
         $action1->setBatchRpcQuery([
-            ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
+            ["failMethod", [1,2],"err"],
+            ["add", [1,2],"suc"],
         ]); 
         $meaningDataHandler = function(\SDPMlab\Anser\Exception\ActionException $e){
             if($e->isClientError()){
@@ -470,7 +476,6 @@ class ConcurrentActionTest extends CIUnitTestCase
         $this->assertEquals($action->getMeaningData()["error"]["msg"],"Method not found");
         $this->assertEquals($action->getMeaningData()["error"]["code"],-32601);
         $this->assertNull($action->getMeaningData()["error"]["data"]);
-
         $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class,$action1->getMeaningData()["response"][0]);
         $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$action1->getMeaningData()["response"][1]);
         $this->assertNotNull($action1->getMeaningData()["success"]["id"]);

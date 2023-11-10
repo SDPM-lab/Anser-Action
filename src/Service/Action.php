@@ -750,13 +750,7 @@ class Action implements ActionInterface
     {
         // the rpc unique id
         if (is_null($id)) {
-            $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-          );
+            $id = $this->generateRpcUUID();
         }
         $this->rpcClient->query($id, $method, $arguments);
         $this->isSetRpcRequest = true;
@@ -778,6 +772,7 @@ class Action implements ActionInterface
      */
     public function setBatchRpcQuery(array $batchRpcQuery): ActionInterface
     {
+        $verifyId = [];
         if (count($batchRpcQuery) == 0 | empty($batchRpcQuery)) {
             throw  ActionException::forSetBatchRpcQueryBtDataNotExist($this->serviceName);
         }
@@ -787,12 +782,33 @@ class Action implements ActionInterface
             $this->setRpcQuery($batchRpcQuery[0][0],$batchRpcQuery[0][1], $batchRpcQuery[0][2]);
         }else {
             foreach ($batchRpcQuery as $rpcQuery) {
-                $rpcQuery[2] = $rpcQuery[2] ?? null;
+                $rpcQuery[2] = $rpcQuery[2] ?? $this->generateRpcUUID();
+                $verifyId[] = $rpcQuery[2];
+                if (array_key_exists($rpcQuery[2],$verifyId)) {
+                    throw  ActionException::forSetBatchRpcQueryIdRepeat($this->serviceName);
+                }
                 $this->setRpcQuery($rpcQuery[0], $rpcQuery[1], $rpcQuery[2]);
             }
         }
         $this->isSetRpcRequest = true;
         return $this;
+    }
+
+    /**
+     * 產生一組 v4 UUID 
+     *
+     * @return string
+     */
+    protected function generateRpcUUID(): string
+    {
+        $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+        return (string)$id;
     }
 
     /**
@@ -810,7 +826,7 @@ class Action implements ActionInterface
      *
      * @param ResponseInterface $response
      */
-    public function verifyResponse(ResponseInterface $response)
+    protected function verifyResponse(ResponseInterface $response)
     {
         if (!is_null($this->getRpcRequest())) {
             $rpcResults = $this->rpcClient->decode($response->getBody());
@@ -821,9 +837,10 @@ class Action implements ActionInterface
 
             foreach ($rpcResults as $rpcResponse) {
                 if ($rpcResponse instanceof \Datto\JsonRpc\Responses\ResultResponse) {
-                    $this->rpcResponses["success"][] = $rpcResponse;
+
+                    $this->rpcResponses["success"][$rpcResponse->getId()] = $rpcResponse;
                 } elseif ($rpcResponse instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
-                    $this->rpcResponses["error"][] = $rpcResponse;
+                    $this->rpcResponses["error"][$rpcResponse->getId()] = $rpcResponse;
                 }
             }
             if (!empty($this->rpcResponses["error"])) {
@@ -841,41 +858,37 @@ class Action implements ActionInterface
      * 取得RPC響應實體
      * 只回傳success的RPC響應
      *
-     * @return array<\Datto\JsonRpc\Responses\Response>|null
+     * @param string|null $rpcId
+     * 
+     * @return array<\Datto\JsonRpc\Responses\ResultResponse>|\Datto\JsonRpc\Responses\ResultResponse|null
      */
-    public function getRpcResponse(): ?array
+    public function getRpcResponse(?string $rpcId = null): array | \Datto\JsonRpc\Responses\ResultResponse | null
     {
+        if (!is_null($rpcId)) {
+            return $this->rpcResponses["success"][$rpcId] ?? null;
+        }
         return $this->rpcResponses["success"] ?? null;
     }
 
     /**
      * 取得RPC Result
-     *
-     * @return array<mixed>|null
+     * 若無傳入rpcId進行查詢則回傳將以RPC ID作為key，RPC result作為value形式回傳
+     * 若傳入rpcId則直接回傳result
+     * 
+     * @param string|null $rpcId
+     * 
+     * @return array<string<mixed>>|mixed|null
      */
-    public function getRpcResult(): ?array
+    public function getRpcResult(?string $rpcId = null)
     {
         if (!is_null($this->getRpcResponse())) {
-            $result = [];
-            foreach ($this->getRpcResponse() as $rpcRequest) {
-                $result[] =  $rpcRequest->getValue();
+            if (!is_null($rpcId)) {
+                return $this->getRpcResponse()[$rpcId]->getValue() ?? null;
             }
-            return $result;
-        }
-        return null;
-    }
 
-    /**
-     * 取得RPC id
-     *
-     * @return array<string>|null
-     */
-    public function getRpcId(): ?array
-    {
-        if (!is_null($this->getRpcResponse())) {
             $result = [];
             foreach ($this->getRpcResponse() as $rpcResponse) {
-                $result[] =  $rpcResponse->getId();
+                $result[$rpcResponse->getId()] =  $rpcResponse->getValue();
             }
             return $result;
         }

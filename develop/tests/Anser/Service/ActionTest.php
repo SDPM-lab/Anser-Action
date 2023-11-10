@@ -335,12 +335,15 @@ class ActionTest extends CIUnitTestCase
         $rpcResponse = $action->getRpcResponse();
         $this->assertIsArray($rpcResponse);
         $this->assertEquals(count($rpcResponse),1);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[0]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[$id]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[$id]);
+        $rpcResponseById = $action->getRpcResponse($id);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponseById);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponseById);
         $data = $action->getRpcResult();
-        $this->assertEquals($data[0],3); 
-        $id   = $action->getRpcId();
-        $this->assertEquals($id[0],1);
+        $this->assertEquals($data[$id],3); 
+        $dataById = $action->getRpcResult($id);
+        $this->assertEquals($dataById,3); 
         $this->assertEquals($action->isSuccess(),true);
     }
     
@@ -348,13 +351,14 @@ class ActionTest extends CIUnitTestCase
     {
         $method = 'add';
         $param  = [1,2]; 
-        $id = "1";
-
+        $id1 = "1";
+        $id2 = "2";
+        $id3 = "3";
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
-            [$method, $param,$id]
+            [$method, $param,$id1],
+            [$method, $param,$id2],
+            [$method, $param,$id3]
         ]); 
         $action->do();
         $response = $action->getResponse();
@@ -362,34 +366,66 @@ class ActionTest extends CIUnitTestCase
         $rpcResponse = $action->getRpcResponse();
         $this->assertIsArray($rpcResponse);
         $this->assertEquals(count($rpcResponse),3);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[1]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[1]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[2]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[2]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[$id1]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[$id1]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[$id2]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[$id2]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponse[$id3]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponse[$id3]);
+        $rpcResponseById1 = $action->getRpcResponse($id1);
+        $rpcResponseById2 = $action->getRpcResponse($id2);
+        $rpcResponseById3 = $action->getRpcResponse($id3);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponseById1);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponseById1);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponseById2);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponseById2);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\Response::class, $rpcResponseById3);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class, $rpcResponseById3);
         $data = $action->getRpcResult();
-        $this->assertEquals($data[0],3); 
-        $this->assertEquals($data[1],3); 
-        $this->assertEquals($data[2],3); 
-        $id   = $action->getRpcId();
-        $this->assertEquals($id[0],1); 
-        $this->assertEquals($id[1],1); 
-        $this->assertEquals($id[2],1); 
+        $this->assertEquals($data[$id1],3); 
+        $this->assertEquals($data[$id2],3); 
+        $this->assertEquals($data[$id3],3); 
+        $dataById1 = $action->getRpcResult($id1);
+        $dataById2 = $action->getRpcResult($id2);
+        $dataById3 = $action->getRpcResult($id3);
+        $this->assertEquals($dataById1,3); 
+        $this->assertEquals($dataById2,3); 
+        $this->assertEquals($dataById3,3); 
         $this->assertEquals($action->isSuccess(),true);
+    }
+
+    public function testBatchRPCIdRepeatExceptionActionDo()
+    {
+        $method = 'add';
+        $param  = [1,2]; 
+        $id1 = "1";
+        $id2 = "1";
+        $id3 = "1";
+
+        $this->expectException(\SDPMlab\Anser\Exception\ActionException::class);
+        $this->expectExceptionMessage("Action http://localhost:8080 已使用 setBatchRpcQuery() ，但傳入ID重複。");
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setBatchRpcQuery([
+            [$method, $param,$id1],
+            [$method, $param,$id2],
+            [$method, $param,$id3]
+        ]); 
+        $action->do();
     }
 
     public function testFailHandlerBatchRPCErrorActionDo()
     {
         $method = 'failMethod';
         $param  = [1,2]; 
-        $id = "1";
+        $id1 = "1";
+        $id2 = "2";
+        $id3 = "3";
 
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            [$method, $param,$id],
-            [$method, $param,$id],
-            [$method, $param,$id]
+            [$method, $param,$id1],
+            [$method, $param,$id2],
+            [$method, $param,$id3]
         ]); 
         $errRpc = [];
         $sucRpc = [];
@@ -407,13 +443,52 @@ class ActionTest extends CIUnitTestCase
         $this->assertEquals(count($errRpc),3);
     }
 
+    public function testFailHandlerBatchRPCErrorActionDoWithGetRpcResponseById()
+    {
+        $method = 'failMethod';
+        $param  = [1,2]; 
+        $id1 = "1";
+        $id2 = "2";
+        $id3 = "3";
+
+        $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
+        $action->setBatchRpcQuery([
+            [$method, $param,$id1],
+            [$method, $param,$id2],
+            [$method, $param,$id3]
+        ]); 
+        $action->failHandler(function(ActionException $e) use ($id1,$id2,$id3){
+            if($e->isRpcError()){
+                $e->getAction()->setMeaningData([
+                    "errRpc1" => $e->getErrorRpc($id1),
+                    "sucRpc1" => $e->getSuccessRpc($id1),
+                    "errRpc2" => $e->getErrorRpc($id2),
+                    "sucRpc2" => $e->getSuccessRpc($id2),
+                    "errRpc3" => $e->getErrorRpc($id3),
+                    "sucRpc3" => $e->getSuccessRpc($id3)
+                ]);
+                
+            }
+        });
+        
+        $this->assertIsCallable($action->getFaileHandler());
+        $action->do();
+        $data = $action->getMeaningData();
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class,$data["errRpc1"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class,$data["errRpc2"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ErrorResponse::class,$data["errRpc3"]);
+        $this->assertNull($data["sucRpc1"]);
+        $this->assertNull($data["sucRpc2"]);
+        $this->assertNull($data["sucRpc3"]);
+    }
+
     public function testFailHandlerBatchRPCSuccessAndErrorActionDo()
     {
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
-            ["failMethod", [1,2],"1"]
+            ["failMethod", [1,2]],
+            ["add", [1,2]],
+            ["failMethod", [1,2]]
         ]); 
         $action->setTimeout(3);
         $errRpc = [];
@@ -437,14 +512,16 @@ class ActionTest extends CIUnitTestCase
     {
         $action = new Action("http://localhost:8080", "POST", "/api/v1/rpcServer");
         $action->setBatchRpcQuery([
-            ["failMethod", [1,2],"1"],
-            ["add", [1,2],"1"],
-            ["failMethod", [1,2],"1"]
+            ["failMethod", [1,2]],
+            ["add", [1,2]],
+            ["failMethod", [1,2]]
         ]); 
         $errRpc = [];
         $sucRpc = [];
-        $action->failHandler(function(ActionException $e) use (&$errRpc,&$sucRpc){
+        $rpcResponses = [];
+        $action->failHandler(function(ActionException $e) use (&$errRpc,&$sucRpc,&$rpcResponses){
             if($e->isRpcError()){
+                $rpcResponses = $e->getRpcResponse();
                 $errRpc = $e->getErrorRpc();
                 $sucRpc = $e->getSuccessRpc();
             }
@@ -452,20 +529,29 @@ class ActionTest extends CIUnitTestCase
         
         $this->assertIsCallable($action->getFaileHandler());
         $action->do();
+        $this->assertIsArray($rpcResponses);
         $this->assertIsArray($errRpc);
         $this->assertIsArray($sucRpc);
+        
+        $this->assertEquals(count($rpcResponses["error"]),2);
+        $this->assertEquals(count($rpcResponses["success"]),1);
         $this->assertEquals(count($errRpc),2);
         $this->assertEquals(count($sucRpc),1);
-        $this->assertEquals($errRpc[0]->getId(),1);
-        $this->assertEquals($errRpc[0]->getMessage(),"Method not found");
-        $this->assertEquals($errRpc[0]->getCode(),-32601);
-        $this->assertNull($errRpc[0]->getData());
-        $this->assertEquals($errRpc[1]->getId(),1);
-        $this->assertEquals($errRpc[1]->getMessage(),"Method not found");
-        $this->assertEquals($errRpc[1]->getCode(),-32601);
-        $this->assertNull($errRpc[1]->getData());
-        $this->assertEquals($sucRpc[0]->getId(),1);
-        $this->assertEquals($sucRpc[0]->getValue(),3);
+        @list($errId1,$errId2) = array_keys($rpcResponses["error"]);
+        @list($sucId1) = array_keys($rpcResponses["success"]);
+        $this->assertNotNull($errId1);
+        $this->assertNotNull($errId2);
+        $this->assertNotNull($sucId1);
+        $this->assertEquals($errRpc[$errId1]->getId(),$errId1);
+        $this->assertEquals($errRpc[$errId1]->getMessage(),"Method not found");
+        $this->assertEquals($errRpc[$errId1]->getCode(),-32601);
+        $this->assertNull($errRpc[$errId1]->getData());
+        $this->assertEquals($errRpc[$errId2]->getId(),$errId2);
+        $this->assertEquals($errRpc[$errId2]->getMessage(),"Method not found");
+        $this->assertEquals($errRpc[$errId2]->getCode(),-32601);
+        $this->assertNull($errRpc[$errId2]->getData());
+        $this->assertEquals($sucRpc[$sucId1]->getId(),$sucId1);
+        $this->assertEquals($sucRpc[$sucId1]->getValue(),3);
     }
 
     public function testDoneHandlerRpcQueryDoActionWithGetData()
@@ -487,18 +573,15 @@ class ActionTest extends CIUnitTestCase
         ) {
             $rpcResponse = $runtimeAction->getRpcResponse();
             $rpcResultArr = $runtimeAction->getRpcResult();
-            $rpcIdArr = $runtimeAction->getRpcId();
             $runtimeAction->setMeaningData([
                 "response" => $rpcResponse,
                 "rpcResultArr" => $rpcResultArr,
-                "rpcIdArr" => $rpcIdArr
             ]);
         });
         
         $data = $action->do()->getMeaningData();
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"][0]);
-        $this->assertEquals($data["rpcResultArr"][0],3);
-        $this->assertNotNull($data["rpcIdArr"][0]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"]["1"]);
+        $this->assertEquals($data["rpcResultArr"][$id],3);
     }
 
     public function testFailHandlerRpcQueryDoActionWithGetData()
@@ -562,21 +645,18 @@ class ActionTest extends CIUnitTestCase
         ) {
             $rpcResponse = $runtimeAction->getRpcResponse();
             $rpcResultArr = $runtimeAction->getRpcResult();
-            $rpcIdArr = $runtimeAction->getRpcId();
             $runtimeAction->setMeaningData([
                 "response" => $rpcResponse,
                 "rpcResultArr" => $rpcResultArr,
-                "rpcIdArr" => $rpcIdArr
             ]);
         });
 
         $data = $action->do()->getMeaningData();
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"][0]);
-        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"][1]);
-        $this->assertEquals($data["rpcResultArr"][0],3);
-        $this->assertEquals($data["rpcResultArr"][1],3);
-        $this->assertNotNull($data["rpcIdArr"][0]);
-        $this->assertNotNull($data["rpcIdArr"][1]);
+        @list($id1,$id2) = array_keys($data["response"]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"][$id1]);
+        $this->assertInstanceOf(\Datto\JsonRpc\Responses\ResultResponse::class,$data["response"][$id2]);
+        $this->assertEquals($data["rpcResultArr"][$id1],3);
+        $this->assertEquals($data["rpcResultArr"][$id2],3);
     }
 
     public function testFailHandlerBatchRpcQueryDoActionWithAllFailData()
@@ -737,5 +817,4 @@ class ActionTest extends CIUnitTestCase
         $this->assertEquals($data["error"]["code"],-32601);
         $this->assertNull($data["error"]["data"]);
     }
-    
 }

@@ -168,6 +168,11 @@ class ActionException extends AnserException
         return new self("Action {$serviceName} 已使用 setBatchRpcQuery() ，但未傳入任何資料於陣列中。");
     }
 
+    public static function forSetBatchRpcQueryIdRepeat(string $serviceName): ActionException
+    {
+        return new self("Action {$serviceName} 已使用 setBatchRpcQuery() ，但傳入ID重複。");
+    }
+    
     public static function forRpcInvalidResponse(string $serviceName): ActionException
     {
         return new self("Action {$serviceName} RPC Response 格式錯誤。");
@@ -223,20 +228,42 @@ class ActionException extends AnserException
      * 回傳解構後RPC Response 
      * 內部包裹success與error case的RPC Response物件
      *
-     * @return array
+     * @return array|null
      */
-    public function getRpcResponse(): array
+    public function getRpcResponse(): ?array
     {
         return $this->rpcResponses;
     }
 
-    public function getSuccessRpc()
+    /**
+     * 回傳解構後RPC Response 
+     * 內部包裹success case的RPC Response物件
+     * 如傳入rpcId 則回傳單一 RPC Response
+     *
+     * @param string|null $rpcId
+     * @return array|null|\Datto\JsonRpc\Responses\ResultResponse
+     */
+    public function getSuccessRpc(?string $rpcId = null)
     {
+        if (!is_null($rpcId)) {
+            return $this->rpcResponses["success"][$rpcId] ?? null;
+        }
         return $this->getRpcResponse()["success"] ?? null;
     }
 
-    public function getErrorRpc()
+    /**
+     * 回傳解構後RPC Response 
+     * 內部包裹error case的RPC Response物件
+     * 如傳入rpcId 則回傳單一 RPC Response
+     *
+     * @param string|null $rpcId
+     * @return array|null|\Datto\JsonRpc\Responses\ErrorResponse
+     */
+    public function getErrorRpc(?string $rpcId = null)
     {
+        if (!is_null($rpcId)) {
+            return $this->rpcResponses["error"][$rpcId] ?? null;
+        }
         return $this->getRpcResponse()["error"] ?? null;
     }
 

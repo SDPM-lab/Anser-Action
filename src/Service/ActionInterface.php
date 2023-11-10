@@ -249,6 +249,20 @@ interface ActionInterface
     public function setRpcQuery(string $method = null, array $arguments = [], ?string $id = null): ActionInterface;
 
     /**
+     * 設定JSON RPC Batch呼叫參數
+     * 陣列規範 
+     * [
+     *   [method,[arguments],id],
+     *   [method,[arguments],id],
+     * ]
+     *
+     * @param array $batchRpcQuery
+     * 
+     * @return ActionInterface
+     */
+    public function setBatchRpcQuery(array $batchRpcQuery): ActionInterface;
+
+    /**
      * 取得當前RPC請求json
      *
      * @return ?string
@@ -256,10 +270,23 @@ interface ActionInterface
     public function getRpcRequest(): ?string;
 
     /**
-     * 判斷Response是否為RPC Response，並解析是否有錯誤
-     *
-     * @param ResponseInterface $response
+     * 取得RPC響應實體
+     * 只回傳success的RPC響應
+     * @param string|null $rpcId
+     * 
+     * @return array<\Datto\JsonRpc\Responses\ResultResponse>|\Datto\JsonRpc\Responses\ResultResponse|null
      */
-    public function verifyResponse(ResponseInterface $response);
+    public function getRpcResponse(?string $rpcId = null): array | \Datto\JsonRpc\Responses\ResultResponse | null;
+
+    /**
+     * 取得RPC Result
+     * 若無傳入rpcId進行查詢則回傳將以RPC ID作為key，RPC result作為value形式回傳
+     * 若傳入rpcId則直接回傳result
+     * 
+     * @param string|null $rpcId
+     * 
+     * @return array<string<mixed>>|mixed|null
+     */
+    public function getRpcResult(?string $rpcId = null);
 
 }

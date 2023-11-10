@@ -54,11 +54,9 @@ class Rpc extends BaseController
         ) {
             $rpcResponse = $runtimeAction->getRpcResponse();
             $rpcResultArr = $runtimeAction->getRpcResult();
-            $rpcIdArr = $runtimeAction->getRpcId();
             $runtimeAction->setMeaningData([
                 "response" => $rpcResponse,
                 "rpcResultArr" => $rpcResultArr,
-                "rpcIdArr" => $rpcIdArr
             ]);
         })
         ->failHandler(function (
