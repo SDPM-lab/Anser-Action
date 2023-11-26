@@ -39,30 +39,50 @@ class Rpc extends BaseController
     public function doSingleAction()
     {
         $action = (new Action(
-            env('serviceAddress'),
-            "GET",
-            "/"
+            "http://localhost:8080",
+            "POST",
+            "/api/v1/rpcServer"
         ))
-        ->setRpcQuery("/producth/index",[])
+        ->setTimeout(5)
+        ->setBatchRpcQuery([
+            ["add",[1,2]],
+            ["add",[1,2]],
+        ])
         ->doneHandler(static function(
             ResponseInterface $response,
             Action $runtimeAction
         ) {
-
-            $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
-            $runtimeAction->setMeaningData($body);
+            $rpcResponse = $runtimeAction->getRpcResponse();
+            $rpcResultArr = $runtimeAction->getRpcResult();
+            $runtimeAction->setMeaningData([
+                "response" => $rpcResponse,
+                "rpcResultArr" => $rpcResultArr,
+            ]);
         })
         ->failHandler(function (
             ActionException $e
         ){
-            if ($e->isRpcMethodError()) {
+            if ($e->isRpcError()) {
+                $errorResArr = $e->getErrorRpc();
+                $successResArr = $e->getSuccessRpc();
+                $result = [];
+                foreach ($errorResArr as $errorRes) {
+                    $result["error"][] = [
+                        "Id" => $errorRes->getId(),
+                        "msg" => $errorRes->getMessage(),
+                        "code" => $errorRes->getCode(),
+                        "data" => $errorRes->getData()
+                    ];
+                }
+                foreach ($successResArr as $successRes) {
+                    $result["success"][] = [
+                        "Id" => $successRes->getId(),
+                        "result" => $successRes->getValue(),
+                    ];
+                }
                 $e->getAction()->setMeaningData([
                     "code" => 400,
-                    "rpccode" => $e->getRpcCode(),
-                    "rpcmsg" => $e->getRpcMsg(),
-                    "rpcdata" => $e->getRpcData(),
-                    "rpcresponse" => $e->getResponse(),
-                    "rpcid"     => $e->getRpcId()
+                    "result" => $result
                 ]);
             }
         });

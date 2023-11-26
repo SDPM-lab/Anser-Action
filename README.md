@@ -231,3 +231,235 @@ var_dump($taichungService->getAction1()->do()->getMeaningData());
 var_dump($taichungService->getAction2()->do()->getMeaningData());
 var_dump($taichungService->getAction2()->do()->getMeaningData());
 ```
+
+### HTTP JSON RPC Single Query
+
+You can pass the desired `method`,`params`, and `id` for an RPC connection in the `Action` object by using the `setRpcQuery()` method (you can also omit the `id`, and the `Action` will automatically generate one).
+
+Once the `setRpcQuery()` method is enabled, the HTTP verb of the `Action` will automatically change to `POST`.
+
+By configuring the `doneHandler`, you can define the execution logic when the connection is successful, and you can temporarily store the required data in the `Action` instance using `setMeaningData`.
+
+If the `RPC` response is parsed correctly, you can handle your `RPC` response using the `doneHandler`.
+
+You can use `getRpcResponse()` to obtain the successful RPC response entity and `getRpcResult()` to retrieve RPC response data (i.e., result). The return values of these methods are in `key-value` format.[Please refer to the JSON-RPC format.](https://www.jsonrpc.org/specification "Please refer to the JSON-RPC format.")。
+
+You can also customize the `RPC ID` for your `RPC` transmissions, and use `getRpcResponse($yourRpcId)` to obtain the corresponding `RPC` response entity. You can also use `getRpcResult($yourRpcId)` to directly retrieve the `RPC` response result (i.e., result).
+
+In the following code,  `$result[$id]` is equivalent to `$resultById`.
+
+```php
+require './vendor/autoload.php';
+use SDPMlab\Anser\Service\Action;
+use Psr\Http\Message\ResponseInterface;
+use SDPMlab\Anser\Service\ServiceList;
+
+$id = "1";
+$action = (new Action(
+    'http://myRpcServer.com',
+    "POST",
+    "/"
+))
+->setRpcQuery("/myRpcMethod", [1,2], $id)
+->doneHandler(static function(
+    ResponseInterface $response,
+    Action $runtimeAction
+) use ($id) {
+    $rpcResponse = $runtimeAction->getRpcResponse();
+    $result = $runtimeAction->getRpcResult();
+    $rpcResponseById = $runtimeAction->getRpcResponse($id);
+    $resultById = $runtimeAction->getRpcResult($id);
+    $runtimeAction->setMeaningData([
+        "result" => $result[$id],
+        "resultById" => $resultById
+    ]);
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```
+
+### HTTP JSON RPC Batch Query
+
+Similar to the approach for `a single JSON RPC request`, you can use the `setBatchRpcQuery()` method in the `Action` object to pass the desired `method`, `params`, and `id` as an array to make RPC connections.
+
+Please note that if duplicate `id` values are provided within a `batch RPC`, the `Action` will throw an error.
+
+Once the `setBatchRpcQuery()` method is enabled, the HTTP verb of the `Action` will automatically change to `POST`.
+
+If all `batch RPC` responses are parsed correctly, you can handle your `RPC` responses using the `doneHandler`.
+
+```php
+require './vendor/autoload.php';
+use SDPMlab\Anser\Service\Action;
+use Psr\Http\Message\ResponseInterface;
+use SDPMlab\Anser\Service\ServiceList;
+
+$id1 = "1";
+$id2 = "2";
+$id3 = "3";
+
+$action = (new Action(
+    'http://myRpcServer.com',
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/myRpcMethod", [1,2], $id1],
+    ["/myRpcMethod", [1,2], $id2],
+    ["/myRpcMethod", [1,2], $id3]
+])
+->doneHandler(static function(
+    ResponseInterface $response,
+    Action $runtimeAction
+) {
+    $returnData = [];
+    $rpcResponses = $runtimeAction->getRpcResponse();
+    foreach ($rpcResponses as $rpcResponse) {
+        $returnData[] = [
+            "id" => $rpcResponse->getId(),
+            "result" => $rpcResponse->getValue()
+        ];
+    }
+    $runtimeAction->setMeaningData($returnData);
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```
+
+### HTTP JSON RPC 錯誤處理 - RPC響應錯誤 
+
+You can control the logic for handling RPC errors in the `Action` by setting up a `failHandler` callback function, which can utilize `isRpcError`. For information on the format of RPC response errors, [Please refer to the JSON-RPC.](https://www.jsonrpc.org/ "Please refer to the JSON-RPC.")..
+
+You can use `getRpcResponse()` to obtain all RPC responses, and the `Action` has categorized these responses into `success` and `error` status.
+
+If you only need to retrieve responses with a specific status, you can use `getSuccessRpc()` and `getErrorRpc()`, and the return values will be wrapped in an array. Additionally, you can use the data retrieval methods in the provided code for more detailed data handling.
+
+Furthermore, you can use `getSuccessRpc()` and `getErrorRpc()` to obtain a single `RPC` response with a specific status by passing an `id`.
+
+```php
+<?php
+require './vendor/autoload.php';
+
+use \SDPMlab\Anser\Service\Action;
+use \Psr\Http\Message\ResponseInterface;
+use \SDPMlab\Anser\Exception\ActionException;
+
+$errorId = "error";
+$successId = "success";
+
+$action = (new Action(
+    "http://myRpcServer.com",
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/errorMethod", [1,2], $errorId],
+    ["/myRpcMethod", [1,2], $successId],
+]); 
+->doneHandler(function (
+    ResponseInterface $response,
+    Action $runtimeAction
+) use ($successId) {
+    $rpcResponse = $runtimeAction->getRpcResponse($successId);
+    $runtimeAction->setMeaningData([
+        "id" => $rpcResponse->getId(),
+        "result" => $rpcResponse->getValue()
+    ]);
+})->failHandler(function (
+    ActionException $e
+) use ($errorId, $successId) {
+    if ($e->isRpcError()) {
+        $rpcResponseById   = $e->getRpcResponse();
+        $errorResArrById   = $e->getErrorRpc($errorId);
+        $successResArrById = $e->getSuccessRpc($successId);
+
+        $result["error"] = [
+            "response" => $errorResArrById,
+            "Id" => $errorResArrById->getId(),
+            "msg" => $errorResArrById->getMessage(),
+            "code" => $errorResArrById->getCode(),
+            "data" => $errorResArrById->getData()
+        ];
+
+        $result["success"] = [
+            "response" => $successResArrById,
+            "Id" => $successResArrById->getId(),
+            "result" => $successResArrById->getValue(),
+        ];
+
+        $e->getAction()->setMeaningData([
+            "result" => $result,
+        ]);
+    }
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```
+
+### HTTP JSON RPC 錯誤處理 - HTTP響應錯誤 
+
+You can use `getRpcByResponse()` to retrieve all RPC responses, and the return value will be an array containing `RPC` response entities.
+
+If you only need to obtain responses with a specific status, you can use `getSuccessRpcByResponse()` and `getErrorRpcByResponse()`, and the return values will be arrays containing these responses. Additionally, you can use the data retrieval methods provided in the code below for more fine-grained data handling.
+
+```php
+<?php
+require './vendor/autoload.php';
+
+use \SDPMlab\Anser\Service\Action;
+use \Psr\Http\Message\ResponseInterface;
+use \SDPMlab\Anser\Exception\ActionException;
+
+$successId = "1";
+$errorId = "2";
+
+$action = (new Action(
+    "http://myRpcServer.com",
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/errorMethod", [1,2], $errorId],
+    ["/myRpcMethod", [1,2], $successId],
+]); 
+->doneHandler(function (
+    ResponseInterface $response,
+    Action $runtimeAction
+) use ($successId, $errorId) {
+    $rpcResponse1 = $runtimeAction->getRpcResponse($successId);
+    $runtimeAction->setMeaningData([
+        "rpc1" => [
+            "id" => $rpcResponse1->getId(),
+            "result" => $rpcResponse1->getValue()
+        ]
+    ]);
+})->failHandler(function (
+    ActionException $e
+) use ($errorId)  {
+    if($e->isClientError()){
+        $rpcResponses = $e->getRpcByResponse();
+        $sucResponse = $e->getSuccessRpcByResponse();
+        $errResponse = $e->getErrorRpcByResponse();
+        $e->getAction()->setMeaningData([
+            "code" => 400,
+            "response" => $rpcResponses,
+            "success" => [
+                "id" => $sucResponse[0]->getId(),
+                "result" => $sucResponse[0]->getValue()
+            ],
+            "error" => [
+                "id" => $errResponse[0]->getId(),
+                "msg" => $errResponse[0]->getMessage(),
+                "code" => $errResponse[0]->getCode(),
+                "data" => $errResponse[0]->getData()
+            ]
+        ]);
+    }
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```

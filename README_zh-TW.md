@@ -229,15 +229,21 @@ var_dump($taichungService->getAction2()->do()->getMeaningData());
 var_dump($taichungService->getAction2()->do()->getMeaningData());
 ```
 
-### HTTP JSON RPC
+### HTTP JSON RPC 單一請求
 
-你可以在 `Action` 物件中，透過使用 `setRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 傳入，即可進行RPC連線。
+你可以在 `Action` 物件中，透過使用 `setRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 傳入，即可進行RPC連線 ( 你也可以不傳入 `id`，此時 `Action` 將會自動生成 `id` )。
 
 啟用 `setRpcQuery()` 方法後，`Action` 的 HTTP 呼叫動詞將會自動轉為 `POST`。 
 
 透過 `doneHandler` 的設定，你能夠設定連線成功時的執行邏輯，並透過 `setMeaningData` 將所需的資料暫存在 `Action` 實體中。
 
-在此你必須透過 `ServiceList` 提供的 `getRpcClient()` 進行RPC資料解析，搭配 `decode()` 方法將 `response Body` 傳入，最終使用 `getValue` 取得資料。 
+如果 `RPC` 響應被解析正確，則可使用 `doneHandler` 處理你的 `RPC` 響應。
+
+你可以使用 `getRpcResponse()` 取得成功的RPC響應實體， `getRpcResult()` 取得RPC響應資料(即result) ，上述方法回傳皆以`key-value`型別進行回傳，[參閱 JSON-RPC 格式](https://www.jsonrpc.org/specification "參閱 JSON-RPC 格式")。
+
+你也可以自訂 `RPC ID` 進行 `RPC` 傳輸，並且使用 `getRpcResponse($yourRpcId)` 取得該 `RPC` 響應實體，另也可使用 `getRpcResult($yourRpcId)` 直接取得 `RPC` 響應結果(即result)。
+
+在下方程式碼中 `$result[$id]` 與 `$resultById` 相同。
 
 ```php
 require './vendor/autoload.php';
@@ -245,29 +251,89 @@ use SDPMlab\Anser\Service\Action;
 use Psr\Http\Message\ResponseInterface;
 use SDPMlab\Anser\Service\ServiceList;
 
-$id = 1;
+$id = "1";
 $action = (new Action(
     'http://myRpcServer.com',
     "POST",
     "/"
 ))
-->setRpcQuery("/myRpcMethod", [], $id)
+->setRpcQuery("/myRpcMethod", [1,2], $id)
 ->doneHandler(static function(
     ResponseInterface $response,
     Action $runtimeAction
-) {
-    $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
-    $runtimeAction->setMeaningData($body);
+) use ($id) {
+    $rpcResponse = $runtimeAction->getRpcResponse();
+    $result = $runtimeAction->getRpcResult();
+    $rpcResponseById = $runtimeAction->getRpcResponse($id);
+    $resultById = $runtimeAction->getRpcResult($id);
+    $runtimeAction->setMeaningData([
+        "result" => $result[$id],
+        "resultById" => $resultById
+    ]);
 });
 
 $data = $action->do()->getMeaningData();
 var_dump($data);
 ```
 
-### HTTP JSON RPC 錯誤處理
-你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時的處理邏輯，如 : `Parse error`、`Invalid Request`、`Method not found`、`Invalid params`、`Internal error`、`Server error` [參閱 JSON-RPC](https://www.jsonrpc.org/ "參閱 JSON-RPC")。
+### HTTP JSON RPC 批次請求
 
-你也可以使用 `Action` 的 HTTP連線錯誤處理搭配 `RPC` 錯誤處理。
+與 `JSON RPC單一請求` 作法相似，你可以在 `Action` 物件中，透過使用 `setBatchRpcQuery()` 方法將欲呼叫的 `method`、`params`、`id` 以陣列型式傳入，即可進行RPC連線。
+
+你可能要注意，如你傳入的 `id` 在批次 `RPC` 中出現重複的狀況，則 `Action` 將會拋出錯誤。
+
+啟用 `setBatchRpcQuery()` 方法後，`Action` 的 HTTP 呼叫動詞將會自動轉為 `POST`。 
+
+如果批次 `RPC` 響應全部被解析正確，則可使用 `doneHandler` 處理你的 `RPC` 響應。
+
+```php
+require './vendor/autoload.php';
+use SDPMlab\Anser\Service\Action;
+use Psr\Http\Message\ResponseInterface;
+use SDPMlab\Anser\Service\ServiceList;
+
+$id1 = "1";
+$id2 = "2";
+$id3 = "3";
+
+$action = (new Action(
+    'http://myRpcServer.com',
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/myRpcMethod", [1,2], $id1],
+    ["/myRpcMethod", [1,2], $id2],
+    ["/myRpcMethod", [1,2], $id3]
+])
+->doneHandler(static function(
+    ResponseInterface $response,
+    Action $runtimeAction
+) {
+    $returnData = [];
+    $rpcResponses = $runtimeAction->getRpcResponse();
+    foreach ($rpcResponses as $rpcResponse) {
+        $returnData[] = [
+            "id" => $rpcResponse->getId(),
+            "result" => $rpcResponse->getValue()
+        ];
+    }
+    $runtimeAction->setMeaningData($returnData);
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```
+
+### HTTP JSON RPC 錯誤處理 - RPC響應錯誤 
+
+你將可以透過設定 `failHandler` 回呼函數，指揮 `Action` 在遇到RPC錯誤時的處理邏輯，如 : `isRpcError` ，RPC響應錯誤格式請[參閱 JSON-RPC](https://www.jsonrpc.org/ "參閱 JSON-RPC")。
+
+你可以使用 `getRpcResponse()` 取得所有RPC響應，並且 `Action` 已將其響應狀態進行分類為 `success` 與 `error`。
+
+如果只需取得其中一種狀態的RPC響應，可使用 `getSuccessRpc()` 與  `getErrorRpc()`，回傳值將以陣列包裹這些響應，同時你也可以使用下述程式碼中的資料取得方式來更細緻的處理資料。
+
+此外 `getSuccessRpc()` 與  `getErrorRpc()` 也可透過傳入 `id` 取得該狀態的單一 `RPC` 響應。
 
 ```php
 <?php
@@ -277,110 +343,116 @@ use \SDPMlab\Anser\Service\Action;
 use \Psr\Http\Message\ResponseInterface;
 use \SDPMlab\Anser\Exception\ActionException;
 
+$errorId = "error";
+$successId = "success";
+
 $action = (new Action(
-    "https://error.endpoint",
-    "GET",
-    "/dfgdfg"
-))->doneHandler(function (
+    "http://myRpcServer.com",
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/errorMethod", [1,2], $errorId],
+    ["/myRpcMethod", [1,2], $successId],
+]); 
+->doneHandler(function (
     ResponseInterface $response,
     Action $runtimeAction
-) {
-    $body = ServiceList::getRpcClient()->decode($response->getBody())[0]->getValue();
-    $runtimeAction->setMeaningData($body);
+) use ($successId) {
+    $rpcResponse = $runtimeAction->getRpcResponse($successId);
+    $runtimeAction->setMeaningData([
+        "id" => $rpcResponse->getId(),
+        "result" => $rpcResponse->getValue()
+    ]);
 })->failHandler(function (
     ActionException $e
-) {
-    if($e->isClientError()){
-        if ($e->isRpcMethodError()) {
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);
-        }else if($e->isRpcInvalidParams()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInvalidRequest()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcParseError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInternalError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInternalServerError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "client error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }
-    }else if ($e->isServerError()){
-        if ($e->isRpcMethodError()) {
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);
-        }else if($e->isRpcInvalidParams()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInvalidRequest()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcParseError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInternalError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }else if($e->isRpcInternalServerError()){
-            $e->getAction()->setMeaningData([
-                "code" => $e->getStatusCode(),
-                "msg" => "server error",
-                "rpcCode" => $e->getRpcCode(),
-                "rpcMsg" => $e->getRpcMsg(),
-            ]);    
-        }
-    }else if($e->isConnectError()){
+) use ($errorId, $successId) {
+    if ($e->isRpcError()) {
+        $rpcResponseById   = $e->getRpcResponse();
+        $errorResArrById   = $e->getErrorRpc($errorId);
+        $successResArrById = $e->getSuccessRpc($successId);
+
+        $result["error"] = [
+            "response" => $errorResArrById,
+            "Id" => $errorResArrById->getId(),
+            "msg" => $errorResArrById->getMessage(),
+            "code" => $errorResArrById->getCode(),
+            "data" => $errorResArrById->getData()
+        ];
+
+        $result["success"] = [
+            "response" => $successResArrById,
+            "Id" => $successResArrById->getId(),
+            "result" => $successResArrById->getValue(),
+        ];
+
         $e->getAction()->setMeaningData([
-            "msg" => $e->getMessage()
+            "result" => $result,
+        ]);
+    }
+});
+
+$data = $action->do()->getMeaningData();
+var_dump($data);
+```
+
+### HTTP JSON RPC 錯誤處理 - HTTP響應錯誤 
+
+你可以使用 `getRpcByResponse()` 取得所有RPC響應，回傳值將以陣列包裹 `RPC` 響應實體。
+
+如只需取得其中一種狀態的 `RPC` 響應，可使用 `getSuccessRpcByResponse()` 與  `getErrorRpcByResponse()`，回傳值將以陣列包裹這些響應，同時你也可以使用下述程式碼中的資料取得方式來更細緻的處理資料。
+
+```php
+<?php
+require './vendor/autoload.php';
+
+use \SDPMlab\Anser\Service\Action;
+use \Psr\Http\Message\ResponseInterface;
+use \SDPMlab\Anser\Exception\ActionException;
+
+$successId = "1";
+$errorId = "2";
+
+$action = (new Action(
+    "http://myRpcServer.com",
+    "POST",
+    "/"
+))
+->setBatchRpcQuery([
+    ["/errorMethod", [1,2], $errorId],
+    ["/myRpcMethod", [1,2], $successId],
+]); 
+->doneHandler(function (
+    ResponseInterface $response,
+    Action $runtimeAction
+) use ($successId, $errorId) {
+    $rpcResponse1 = $runtimeAction->getRpcResponse($successId);
+    $runtimeAction->setMeaningData([
+        "rpc1" => [
+            "id" => $rpcResponse1->getId(),
+            "result" => $rpcResponse1->getValue()
+        ]
+    ]);
+})->failHandler(function (
+    ActionException $e
+) use ($errorId)  {
+    if($e->isClientError()){
+        $rpcResponses = $e->getRpcByResponse();
+        $sucResponse = $e->getSuccessRpcByResponse();
+        $errResponse = $e->getErrorRpcByResponse();
+        $e->getAction()->setMeaningData([
+            "code" => 400,
+            "response" => $rpcResponses,
+            "success" => [
+                "id" => $sucResponse[0]->getId(),
+                "result" => $sucResponse[0]->getValue()
+            ],
+            "error" => [
+                "id" => $errResponse[0]->getId(),
+                "msg" => $errResponse[0]->getMessage(),
+                "code" => $errResponse[0]->getCode(),
+                "data" => $errResponse[0]->getData()
+            ]
         ]);
     }
 });

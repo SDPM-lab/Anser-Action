@@ -144,11 +144,33 @@ class Action implements ActionInterface
      */
     protected $rpcRequest = null;
 
+    /**
+     * 是否啟用JSONRPC請求
+     *
+     * @var boolean
+     */
+    protected $isSetRpcRequest = false;
+
+    /**
+     * JSONRPC 響應
+     *
+     * @var array
+     */
+    protected $rpcResponses = null;
+
+    /**
+     * RPC Client
+     *
+     * @var \Datto\JsonRpc\Client
+     */
+    protected $rpcClient = null;
+
     public function __construct(string $serviceName, string $method, string $path)
     {
         $this->serviceName = $serviceName;
         $this->method = $method;
         $this->path = $path;
+        $this->rpcClient = new \Datto\JsonRpc\Client();
 
         if (is_null(ServiceList::getServiceData($this->serviceName))) {
             throw ActionException::forServiceDataNotFound($this->serviceName);
@@ -253,13 +275,14 @@ class Action implements ActionInterface
             $this->baseUrl . $this->getRequestPath(),
             $options
         )->then(
-            function (ResponseInterface $res) use (&$runtimeAction) {
+            function (ResponseInterface $res) use (&$runtimeAction, $alias) {
                 $runtimeAction->addNumOfActionDo();
+                
                 try {
                     // 將原本的setActionResponse放至verifyResponse呼叫
                     $runtimeAction->verifyResponse($res);
                 } catch (ActionException $th) {
-                    return $runtimeAction->processFailHandlerForRpc($th);
+                    return $runtimeAction->processFailHandlerForRpc($th ,$alias);
                 }
                 //執行後濾器
                 $runtimeAction->useFilters(false);
@@ -365,7 +388,7 @@ class Action implements ActionInterface
     {
         if ($th instanceof \GuzzleHttp\Exception\ConnectException) {
             $this->setActionResponse(null, false);
-            $exception = ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias, $th->getMessage());
+            $exception = ActionException::forServiceActionConnectError($this->serviceName, $this->getRequestSetting(), $th->getRequest(), $this, $alias, $th->getMessage(),$this->rpcResponses);
             if (is_callable($this->failHandler)) {
                 call_user_func($this->failHandler, $exception);
             } else {
@@ -373,7 +396,7 @@ class Action implements ActionInterface
             }    
         }else if($th instanceof \GuzzleHttp\Exception\BadResponseException){
             $this->setActionResponse($th->getResponse(), false);
-            $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias);
+            $exception = ActionException::forServiceActionFailError($this->serviceName, $this->getRequestSetting(), $th->getResponse(), $th->getRequest(), $this, $alias, $this->rpcResponses);
             if (is_callable($this->failHandler)) {
                 $this->response = $th->getResponse();
                 call_user_func($this->failHandler, $exception);
@@ -386,7 +409,7 @@ class Action implements ActionInterface
     public function processFailHandlerForRpc(ActionException $th,?string $alias = null)
     {
         $this->setActionResponse($this->response, false);
-        $exception = ActionException::forRpcResponseError($this->serviceName, $this->getRequestSetting(), $this, $alias, $th->getMessage());
+        $exception = ActionException::forRpcResponseError($this->serviceName, $this->getRequestSetting(), $this, $alias, $this->rpcResponses);
         if (is_callable($this->failHandler)) {
             call_user_func($this->failHandler, $exception);
         } else {
@@ -516,8 +539,9 @@ class Action implements ActionInterface
         }
 
         // 如果rpc請求存在，則加入body
-        if (!is_null($this->getRpcRequest())) {
-            $finallyOptions["body"] = $this->getRpcRequest();
+        if ($this->isSetRpcRequest && is_null($this->getRpcRequest())) {
+            $this->rpcRequest = $this->rpcClient->encode();
+            $finallyOptions["body"] = $this->rpcRequest;
             $this->method = "POST";
         }
         
@@ -719,28 +743,72 @@ class Action implements ActionInterface
      *
      * @param string|null $method
      * @param array $arguments
+     * @param string|null $id
      * @return ActionInterface
      */
     public function setRpcQuery(string $method = null, array $arguments = [], ?string $id = null): ActionInterface
     {
-        $rpcClient = ServiceList::getRpcClient();
-
         // the rpc unique id
         if (is_null($id)) {
-            $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            $id = $this->generateRpcUUID();
+        }
+        $this->rpcClient->query($id, $method, $arguments);
+        $this->isSetRpcRequest = true;
+
+        return $this;
+    }
+
+    /**
+     * 設定JSON RPC Batch呼叫參數
+     * 陣列規範 
+     * [
+     *   [method,[arguments],id],
+     *   [method,[arguments],id],
+     * ]
+     *
+     * @param array $batchRpcQuery
+     * 
+     * @return ActionInterface
+     */
+    public function setBatchRpcQuery(array $batchRpcQuery): ActionInterface
+    {
+        $verifyId = [];
+        if (count($batchRpcQuery) == 0 | empty($batchRpcQuery)) {
+            throw  ActionException::forSetBatchRpcQueryBtDataNotExist($this->serviceName);
+        }
+
+        if (count($batchRpcQuery) == 1) {
+            $batchRpcQuery[0][2] = $batchRpcQuery[0][2] ?? null;
+            $this->setRpcQuery($batchRpcQuery[0][0],$batchRpcQuery[0][1], $batchRpcQuery[0][2]);
+        }else {
+            foreach ($batchRpcQuery as $rpcQuery) {
+                $rpcQuery[2] = $rpcQuery[2] ?? $this->generateRpcUUID();
+                $verifyId[] = $rpcQuery[2];
+                if (array_key_exists($rpcQuery[2],$verifyId)) {
+                    throw  ActionException::forSetBatchRpcQueryIdRepeat($this->serviceName);
+                }
+                $this->setRpcQuery($rpcQuery[0], $rpcQuery[1], $rpcQuery[2]);
+            }
+        }
+        $this->isSetRpcRequest = true;
+        return $this;
+    }
+
+    /**
+     * 產生一組 v4 UUID 
+     *
+     * @return string
+     */
+    protected function generateRpcUUID(): string
+    {
+        $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
             mt_rand(0, 0xffff), mt_rand(0, 0xffff),
             mt_rand(0, 0xffff),
             mt_rand(0, 0x0fff) | 0x4000,
             mt_rand(0, 0x3fff) | 0x8000,
             mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-          );
-        }
-
-        $rpcClient->query($id, $method, $arguments);
-
-        $this->rpcRequest = $rpcClient->encode();
-
-        return $this;
+        );
+        return (string)$id;
     }
 
     /**
@@ -758,16 +826,72 @@ class Action implements ActionInterface
      *
      * @param ResponseInterface $response
      */
-    public function verifyResponse(ResponseInterface $response)
+    protected function verifyResponse(ResponseInterface $response)
     {
         if (!is_null($this->getRpcRequest())) {
-            $result = ServiceList::getRpcClient()->decode($response->getBody())[0];
-            if($result instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+            $rpcResults = $this->rpcClient->decode($response->getBody());
+            if (!is_array($rpcResults)) {
                 $this->setActionResponse($response,false);
-                throw ActionException::forRpcResponseErrorType($result->getMessage(), $result->getCode());
+                throw  ActionException::forRpcInvalidResponse($this->serviceName);
             }
+
+            foreach ($rpcResults as $rpcResponse) {
+                if ($rpcResponse instanceof \Datto\JsonRpc\Responses\ResultResponse) {
+
+                    $this->rpcResponses["success"][$rpcResponse->getId()] = $rpcResponse;
+                } elseif ($rpcResponse instanceof \Datto\JsonRpc\Responses\ErrorResponse) {
+                    $this->rpcResponses["error"][$rpcResponse->getId()] = $rpcResponse;
+                }
+            }
+            if (!empty($this->rpcResponses["error"])) {
+                $this->setActionResponse($response,false);
+                throw ActionException::forRpcResponseErrorType($this->serviceName);
+            }
+
         }
+        // 無使用RPC的請求或成功的RPC請求則從此執行
         $this->setActionResponse($response,true);
         return ;
+    }
+
+    /**
+     * 取得RPC響應實體
+     * 只回傳success的RPC響應
+     *
+     * @param string|null $rpcId
+     * 
+     * @return array<\Datto\JsonRpc\Responses\ResultResponse>|\Datto\JsonRpc\Responses\ResultResponse|null
+     */
+    public function getRpcResponse(?string $rpcId = null): array | \Datto\JsonRpc\Responses\ResultResponse | null
+    {
+        if (!is_null($rpcId)) {
+            return $this->rpcResponses["success"][$rpcId] ?? null;
+        }
+        return $this->rpcResponses["success"] ?? null;
+    }
+
+    /**
+     * 取得RPC Result
+     * 若無傳入rpcId進行查詢則回傳將以RPC ID作為key，RPC result作為value形式回傳
+     * 若傳入rpcId則直接回傳result
+     * 
+     * @param string|null $rpcId
+     * 
+     * @return array<string<mixed>>|mixed|null
+     */
+    public function getRpcResult(?string $rpcId = null)
+    {
+        if (!is_null($this->getRpcResponse())) {
+            if (!is_null($rpcId)) {
+                return $this->getRpcResponse()[$rpcId]->getValue() ?? null;
+            }
+
+            $result = [];
+            foreach ($this->getRpcResponse() as $rpcResponse) {
+                $result[$rpcResponse->getId()] =  $rpcResponse->getValue();
+            }
+            return $result;
+        }
+        return null;
     }
 }
